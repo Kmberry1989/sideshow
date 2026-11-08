@@ -16,7 +16,7 @@ import {
   normalizeBubbleOptions, rgba, readableInkFor,
 } from "../bubble-options.js";
 
-const ALLOWLIST = ["kylematthewberry@gmail.com", "rochelleberry731@gmail.com"];
+const ALLOWLIST = ["kylematthewberry@gmail.com", "rochelleberry731@gmail.com", "media@firedartsstudio.com"];
 const COLLECTION = "mainEvent_events";
 /* Single-key shortcuts (bubble view, expanded event): n name, d date,
    t time range, p price, a ages, h host, l location. */
