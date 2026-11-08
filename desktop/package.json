@@ -61,5 +61,5 @@
     "start": "npm run build && electron .",
     "test": "node --test test/fields.test.js"
   },
-  "version": "0.1.0"
+  "version": "0.1.1"
 }
