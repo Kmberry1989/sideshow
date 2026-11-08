@@ -31,6 +31,7 @@ let onSummon = null;
 let activeGesture = null;
 let hookStarted = false;
 let mode = "idle"; // idle | listening | recording
+let paused = false; // paused while another summon is being recorded
 
 // Per-interaction tracking.
 let downAt = 0;
@@ -199,6 +200,7 @@ function recordEvent(type, e) {
    in explicitly instead of read from the event. A held-button move
    arrives as "mousedragged", not "mousemove". */
 function onMouseEvent(type, e) {
+  if (paused) return;
   if (mode === "recording") recordEvent(type, e);
   else if (mode === "listening") matchGesture(type, e);
 }
@@ -220,6 +222,7 @@ module.exports = {
   available,
   describe,
   getGesture: () => activeGesture,
+  setPaused(p) { paused = !!p; },
   setGesture(gesture, summon) {
     activeGesture = gesture || null;
     onSummon = summon || null;

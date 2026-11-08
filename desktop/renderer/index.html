@@ -7,53 +7,83 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header>
-      <h1><img class="mark" src="../assets/wordmark.png" alt="Sideshow" /><img class="mark mark-light" src="../assets/wordmark-light.png" alt="" aria-hidden="true" /></h1>
-      <button id="closeBtn" type="button" aria-label="Close">×</button>
-    </header>
-    <div class="auth">
-      <span id="authLabel"></span>
-      <button id="signInBtn" type="button" class="btn">Sign in with Google</button>
-      <button id="signOutBtn" type="button" class="btn plain" style="display:none">Sign out</button>
+    <!-- Main view: just the bubble. No settings, no chrome. -->
+    <div id="bubbleView" class="view">
+      <header class="bubble-header">
+        <button id="settingsBtn" type="button" aria-label="Settings">⚙</button>
+        <button id="closeBtn" type="button" aria-label="Close">×</button>
+      </header>
+      <p id="status" class="status"></p>
+      <main id="bubbleTree" class="bubble-tree"></main>
+      <div id="state-loading" class="state">Loading…</div>
+      <div id="state-config" class="state">
+        <p>Add firebase-config.json</p>
+        <button id="openConfigBtn" type="button" class="btn">Open folder</button>
+      </div>
+      <div id="state-error" class="state">Could not load events.</div>
     </div>
-    <div class="settings">
-      <div class="setting">
-        <span class="setting-label">Hotkey</span>
-        <button id="hotkeyBtn" type="button" class="btn plain setting-btn">Ctrl+Shift+E</button>
-      </div>
-      <div class="setting">
-        <span class="setting-label">Gesture</span>
-        <button id="gestureBtn" type="button" class="btn plain setting-btn">None</button>
-        <button id="gestureClearBtn" type="button" class="btn plain setting-btn small" style="display:none" aria-label="Clear gesture">×</button>
-      </div>
-      <div class="setting">
-        <span class="setting-label">Sound</span>
-        <button id="soundBtn" type="button" class="btn plain setting-btn" aria-label="Sound on or off">🔊</button>
-      </div>
-      <div class="setting">
-        <span class="setting-label">Motion</span>
-        <button id="motionBtn" type="button" class="btn plain setting-btn">Full</button>
-      </div>
-      <div class="setting">
-        <span class="setting-label">Reminders</span>
-        <button id="remindersBtn" type="button" class="btn plain setting-btn" aria-label="Reminders on or off">🔔</button>
-      </div>
-      <div class="setting">
-        <span class="setting-label">Accent</span>
-        <span id="accentSwatches" class="swatches"></span>
+    <!-- Settings view: every setting lives here, never in the bubble. -->
+    <div id="settingsView" class="view settings-view" hidden>
+      <header class="settings-header">
+        <button id="settingsBackBtn" type="button" aria-label="Back">←</button>
+        <span class="settings-title">Settings</span>
+        <button id="settingsCloseBtn" type="button" aria-label="Close">×</button>
+      </header>
+      <div class="settings-body">
+        <p id="settingsStatus" class="status"></p>
+        <div class="auth">
+          <span id="authLabel"></span>
+          <button id="signInBtn" type="button" class="btn">Sign in with Google</button>
+          <button id="signOutBtn" type="button" class="btn plain" style="display:none">Sign out</button>
+        </div>
+        <div class="setting">
+          <span class="setting-label">Hotkey</span>
+          <button id="hotkeyBtn" type="button" class="btn plain setting-btn">Ctrl+Shift+E</button>
+        </div>
+        <div class="setting">
+          <span class="setting-label">Double-tap</span>
+          <button id="doubletapBtn" type="button" class="btn plain setting-btn">Shift</button>
+        </div>
+        <div class="setting">
+          <span class="setting-label">Gesture</span>
+          <button id="gestureBtn" type="button" class="btn plain setting-btn">None</button>
+          <button id="gestureClearBtn" type="button" class="btn plain setting-btn small" style="display:none" aria-label="Clear gesture">×</button>
+        </div>
+        <div class="setting">
+          <span class="setting-label">Long-click</span>
+          <button id="longclickBtn" type="button" class="btn plain setting-btn">None</button>
+          <button id="longclickClearBtn" type="button" class="btn plain setting-btn small" style="display:none" aria-label="Clear long-click">×</button>
+        </div>
+        <div class="setting">
+          <span class="setting-label">Sound</span>
+          <button id="soundBtn" type="button" class="btn plain setting-btn" aria-label="Sound on or off">🔊</button>
+        </div>
+        <div class="setting">
+          <span class="setting-label">Motion</span>
+          <button id="motionBtn" type="button" class="btn plain setting-btn">Full</button>
+        </div>
+        <div class="setting">
+          <span class="setting-label">Reminders</span>
+          <button id="remindersBtn" type="button" class="btn plain setting-btn" aria-label="Reminders on or off">🔔</button>
+        </div>
+        <div class="setting">
+          <span class="setting-label">Accent</span>
+          <span id="accentSwatches" class="swatches"></span>
+        </div>
+        <div class="setting">
+          <span class="setting-label">Look</span>
+          <span id="appearanceBtns" class="seg">
+            <button id="appearanceGlassBtn" type="button" class="btn plain setting-btn">Glass</button>
+            <button id="appearanceShadedBtn" type="button" class="btn plain setting-btn">Shaded</button>
+            <button id="appearanceClearBtn" type="button" class="btn plain setting-btn">Clear</button>
+          </span>
+        </div>
+        <div class="setting">
+          <span class="setting-label">See-through</span>
+          <input id="transparencySlider" type="range" min="0" max="100" value="50" aria-label="Transparency" />
+        </div>
       </div>
     </div>
-    <input id="search" type="search" placeholder="Search" autocomplete="off" />
-    <p id="status" class="status"></p>
-    <main id="eventList"></main>
-    <div id="state-loading" class="state">Loading…</div>
-    <div id="state-config" class="state">
-      <p>Add firebase-config.json</p>
-      <button id="openConfigBtn" type="button" class="btn">Open folder</button>
-    </div>
-    <div id="state-signin" class="state">Sign in to see saved events.</div>
-    <div id="state-empty" class="state">No saved events yet.</div>
-    <div id="state-error" class="state">Could not load events.</div>
     <script src="bundle.js"></script>
   </body>
 </html>

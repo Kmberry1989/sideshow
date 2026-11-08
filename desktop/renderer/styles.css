@@ -9,6 +9,8 @@
   --good: #2e6b34;
   --good-bg: #e2efe1;
   --chip: #efe7db;
+  /* Bubble fill alpha (0.05–1.0), set from the transparency setting. */
+  --bubble-alpha: 0.55;
   /* One motion language: a single easing + duration for every
      state change in the panel (hover, focus, copy, open/close). */
   --ease: cubic-bezier(.2, .7, .3, 1);
@@ -29,9 +31,8 @@
   }
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
+html, body { margin: 0; padding: 0; background: transparent; }
 body {
-  background: var(--bg);
   color: var(--ink);
   font-family: "Public Sans", system-ui, -apple-system, sans-serif;
   font-size: 14px;
@@ -43,33 +44,171 @@ body {
   -webkit-user-select: none;
   user-select: none;
 }
-header {
+.view { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+.view[hidden] { display: none; }
+
+/* ---------- Bubble view: header (gear + close only) ---------- */
+.bubble-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 14px 8px;
+  padding: 10px 12px 4px;
+  flex: none;
 }
-h1 { font-size: 17px; margin: 0; font-weight: 700; }
-h1 img.mark { height: 30px; width: auto; display: block; }
-h1 img.mark-light { display: none; }
-@media (prefers-color-scheme: dark) {
-  h1 img.mark { display: none; }
-  h1 img.mark-light { display: block; }
-}
-#closeBtn {
-  border: 0; background: none; color: var(--ink-soft);
-  font-size: 22px; line-height: 1; cursor: pointer; padding: 2px 6px;
+.bubble-header button {
+  border: 1px solid var(--line);
+  background: var(--bubble-fill);
+  color: var(--ink-soft);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 999px;
   transition: color var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
-#closeBtn:hover { color: var(--ink); transform: scale(1.08); }
-.auth {
+.bubble-header button:hover { color: var(--ink); transform: scale(1.08); }
+#settingsBtn { font-size: 14px; }
+.status { margin: 0 14px 6px; font-size: 12.5px; color: var(--ink-soft); min-height: 0; }
+.status:empty { display: none; }
+
+/* ---------- Bubble tree ---------- */
+.bubble-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 14px 16px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 14px 10px;
+  flex-direction: column;
+  align-items: flex-start;
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 }
-#authLabel { font-size: 12.5px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bubble-fill);
+  border: 1.5px solid var(--bubble-border);
+  border-radius: 999px;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  max-width: 100%;
+  transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.bubble:hover { border-color: var(--ink-soft); }
+.bubble:active { transform: translateY(1px); }
+.root-bubble {
+  padding: 9px 18px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: grab;
+}
+.root-bubble:active { cursor: grabbing; }
+.tree-connector {
+  width: 2px;
+  height: 12px;
+  margin-left: 26px;
+  background: var(--bubble-border);
+  flex: none;
+}
+.event-branch { display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 8px; max-width: 100%; }
+.event-bubble {
+  padding: 7px 14px;
+  font-size: 13.5px;
+  max-width: 100%;
+}
+.event-bubble .event-title { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.event-bubble .event-sub { color: var(--ink-soft); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.event-bubble .expand-mark { font-weight: 700; color: var(--ink-soft); margin-left: 2px; flex: none; }
+.event-branch.expanded .event-bubble { border-color: var(--accent); }
+.value-branch {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 8px 0 2px 18px;
+  padding-left: 14px;
+  border-left: 2px solid var(--bubble-border);
+}
+.value-bubble {
+  padding: 5px 12px;
+  font-size: 13px;
+}
+.value-bubble .value-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.value-bubble .copy-svg { width: 14px; height: 14px; flex: none; color: var(--ink-soft); }
+.key-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  flex: none;
+}
+.signin-bubble, .empty-bubble { padding: 7px 14px; font-size: 13.5px; }
+.empty-bubble { cursor: default; }
+.empty-bubble:hover { border-color: var(--bubble-border); }
+
+/* ---------- Bubble appearance: Glass / Shaded / Transparent ---------- */
+/* The fill alpha comes from --bubble-alpha (the transparency slider).
+   Glass adds a frosted backdrop blur; Shaded is a soft tint; Clear
+   is nearly transparent. */
+.appearance-glass { --bubble-fill: rgba(255, 255, 255, var(--bubble-alpha)); --bubble-border: rgba(43, 33, 24, 0.4); }
+.appearance-shaded { --bubble-fill: rgba(232, 222, 208, var(--bubble-alpha)); --bubble-border: rgba(43, 33, 24, 0.45); }
+.appearance-clear { --bubble-fill: rgba(255, 255, 255, calc(var(--bubble-alpha) * 0.12)); --bubble-border: rgba(43, 33, 24, 0.5); }
+.appearance-glass .bubble { backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5); }
+@media (prefers-color-scheme: dark) {
+  .appearance-glass { --bubble-fill: rgba(42, 33, 26, var(--bubble-alpha)); --bubble-border: rgba(242, 233, 223, 0.4); }
+  .appearance-shaded { --bubble-fill: rgba(58, 45, 33, var(--bubble-alpha)); --bubble-border: rgba(242, 233, 223, 0.45); }
+  .appearance-clear { --bubble-fill: rgba(42, 33, 26, calc(var(--bubble-alpha) * 0.12)); --bubble-border: rgba(242, 233, 223, 0.5); }
+  .appearance-glass .bubble { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12); }
+}
+
+/* ---------- Copy pop + confirm (value bubbles) ---------- */
+.bubble.pop { animation: pop .28s ease-out; }
+@keyframes pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.07); }
+  100% { transform: scale(1); }
+}
+.bubble .bubble-confirm { display: none; width: 18px; height: 18px; flex: none; }
+.bubble.copied .bubble-confirm { display: inline-block; }
+.bubble.copied .value-text, .bubble.copied .copy-svg { display: none; }
+.bubble.copied { background: var(--good-bg); border-color: var(--good); color: var(--good); }
+.bubble-confirm rect, .bubble-confirm path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.bubble-confirm .draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .25s ease-out forwards; }
+.bubble-confirm .copy-icon { animation: copyfade .25s ease-in .3s forwards; }
+.bubble-confirm .draw-check { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .3s ease-out .28s forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes copyfade { to { opacity: 0; } }
+
+/* ---------- States (loading / config / error) ---------- */
+.state {
+  display: none;
+  margin: 12px 14px;
+  padding: 18px 16px;
+  text-align: center;
+  color: var(--ink-soft);
+  background: var(--bubble-fill);
+  border: 1.5px solid var(--bubble-border);
+  border-radius: 14px;
+}
+.state.show { display: block; }
+.state p { margin: 0 0 12px; }
+
+/* ---------- Buttons / settings rows (settings view) ---------- */
 .btn {
   border: 1px solid var(--accent);
   background: var(--accent);
@@ -85,67 +224,51 @@ h1 img.mark-light { display: none; }
 .btn:hover { filter: brightness(1.07); }
 .btn:active { transform: translateY(1px); }
 .btn.plain { background: var(--surface); border-color: var(--line); color: var(--ink); }
-#search {
-  margin: 0 14px 10px;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  -webkit-user-select: text;
-  user-select: text;
-}
-#search:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-.status { margin: 0 14px 8px; font-size: 12.5px; color: var(--ink-soft); min-height: 0; }
-.status:empty { display: none; }
-main { flex: 1; overflow-y: auto; padding: 0 14px 14px; }
-.event {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  padding: 11px 12px;
-  margin-bottom: 10px;
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
-}
-.event:hover { border-color: var(--ink-soft); }
-.event-title { font-weight: 700; font-size: 14.5px; }
-.event-sub { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
-.chip {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-  background: var(--chip);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 4px 10px;
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-  color: var(--ink);
-  max-width: 100%;
-  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), transform var(--dur) var(--ease);
-}
-.chip:hover { border-color: var(--ink-soft); transform: translateY(-1px); }
-.chip:active { transform: translateY(1px); }
-.chip-k { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft); }
-.chip-v { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
-.chip.copied { background: var(--good-bg); border-color: var(--good); color: var(--good); }
-.state { display: none; padding: 24px 14px; text-align: center; color: var(--ink-soft); }
-.state.show { display: block; }
-.state p { margin: 0 0 12px; }
+.btn.plain.active { border-color: var(--accent); color: var(--accent); }
 
-/* Settings row: hotkey, gesture, sound. */
-.settings {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  align-items: center;
-  padding: 0 14px 10px;
+/* ---------- Settings view (a solid card floating on the desktop) ---------- */
+.settings-view {
+  position: absolute;
+  inset: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  font-family: "Public Sans", system-ui, -apple-system, sans-serif;
 }
-.setting { display: flex; align-items: center; gap: 6px; }
-.setting-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft); }
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 12px 8px;
+  flex: none;
+}
+.settings-header button {
+  border: 0; background: none; color: var(--ink-soft);
+  font-size: 20px; line-height: 1; cursor: pointer; padding: 2px 6px;
+  transition: color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.settings-header button:hover { color: var(--ink); transform: scale(1.08); }
+.settings-title { font-size: 15px; font-weight: 700; }
+.settings-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+.settings-body .status { margin: 0; }
+.auth {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+#authLabel { font-size: 12.5px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.setting { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.setting-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft); flex: none; }
 .setting-btn { padding: 4px 9px; font-size: 12.5px; }
 .setting-btn.small { padding: 4px 7px; }
 .setting-btn.listening { border-color: var(--accent); color: var(--accent); }
@@ -154,51 +277,19 @@ main { flex: 1; overflow-y: auto; padding: 0 14px 14px; }
   0% { background: var(--good-bg); border-color: var(--good); color: var(--good); }
   100% { background: var(--surface); border-color: var(--line); color: var(--ink); }
 }
+.seg { display: inline-flex; gap: 4px; }
+#transparencySlider { flex: 1; accent-color: var(--accent); }
 
-/* Focused event card (single-key shortcuts copy from this one). */
-.event.focused { border-color: var(--accent); }
-
-/* Single-key badge on a chip. */
-.chip-key {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 3px;
-  border-radius: 4px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--ink-soft);
+/* Accent swatches. */
+.swatches { display: inline-flex; gap: 5px; align-items: center; }
+.swatch {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 1px solid var(--line); cursor: pointer; padding: 0;
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
-
-/* Copy pop: the chip briefly scales when its value is copied. */
-.chip.pop { animation: pop .28s ease-out; }
-@keyframes pop {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.07); }
-  100% { transform: scale(1); }
-}
-
-/* Copy confirm: a copy icon draws, then a checkmark draws itself.
-   Shown in place of the value while the chip is copied. */
-.chip .chip-confirm { display: none; width: 18px; height: 18px; flex: none; }
-.chip.copied .chip-confirm { display: inline-block; }
-.chip.copied .chip-v { display: none; }
-.chip-confirm rect, .chip-confirm path {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.chip-confirm .draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .25s ease-out forwards; }
-.chip-confirm .copy-icon { animation: copyfade .25s ease-in .3s forwards; }
-.chip-confirm .draw-check { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .3s ease-out .28s forwards; }
-@keyframes draw { to { stroke-dashoffset: 0; } }
-@keyframes copyfade { to { opacity: 0; } }
+.swatch:hover { transform: scale(1.15); }
+.swatch.selected { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--ink); }
+.swatch.default { background: linear-gradient(135deg, #007aff 50%, #2e6b34 50%); }
 
 /* macOS: the accent and copy confirmation are blue, not green. */
 .platform-darwin {
@@ -214,22 +305,11 @@ main { flex: 1; overflow-y: auto; padding: 0 14px 14px; }
   }
 }
 
-/* Accent swatches. */
-.swatches { display: inline-flex; gap: 5px; align-items: center; }
-.swatch {
-  width: 18px; height: 18px; border-radius: 50%;
-  border: 1px solid var(--line); cursor: pointer; padding: 0;
-  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
-}
-.swatch:hover { transform: scale(1.15); }
-.swatch.selected { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--ink); }
-.swatch.default { background: linear-gradient(135deg, #007aff 50%, #2e6b34 50%); }
-
 /* Accessibility: reduced motion — minimal fade only, no pop/scale.
    Off — instant state changes, no animation at all. The copy
    confirmation still shows the drawn checkmark (animations complete
    instantly to their end state), just without the motion. */
 .motion-reduced * { animation-duration: .08s !important; animation-delay: 0s !important; transition-duration: .08s !important; }
-.motion-reduced .chip.pop { animation: none; }
+.motion-reduced .bubble.pop { animation: none; }
 .motion-off * { animation-duration: 0s !important; animation-delay: 0s !important; transition-duration: 0s !important; }
-.motion-off .chip.pop { animation: none; }
+.motion-off .bubble.pop { animation: none; }

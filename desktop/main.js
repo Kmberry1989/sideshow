@@ -39,6 +39,22 @@ try {
   gesture = null;
 }
 
+/* Double-tap summon (global keyboard hook) and long-click summon
+   (global mouse hook). Same lazy pattern as the gesture module —
+   a missing native module never breaks the app. */
+let doubletap = null;
+try {
+  doubletap = require("./doubletap.js");
+} catch (e) {
+  doubletap = null;
+}
+let longclick = null;
+try {
+  longclick = require("./longclick.js");
+} catch (e) {
+  longclick = null;
+}
+
 /* ---------- settings (hotkey + gesture), stored in userData ---------- */
 
 function settingsPath() {
@@ -77,9 +93,9 @@ function isValidAccelerator(acc) {
 function registerHotkey(acc) {
   if (!isValidAccelerator(acc)) return false;
   globalShortcut.unregister(currentHotkey);
-  const ok = globalShortcut.register(acc, togglePanel);
+  const ok = globalShortcut.register(acc, requestToggle);
   if (!ok) {
-    globalShortcut.register(currentHotkey, togglePanel);
+    globalShortcut.register(currentHotkey, requestToggle);
     return false;
   }
   currentHotkey = acc;
@@ -88,7 +104,21 @@ function registerHotkey(acc) {
 
 function applyGesture() {
   if (!gesture || !gesture.available) return;
-  gesture.setGesture(settings.gesture || null, togglePanel);
+  gesture.setGesture(settings.gesture || null, requestToggle);
+}
+
+/* Double-tap summon: a lone modifier key tapped twice. Default is
+   Shift; the user can pick another modifier in settings. */
+function applyDoubleTap() {
+  if (!doubletap || !doubletap.available) return;
+  doubletap.setKey(settings.doubleTapKey || "Shift", requestToggle);
+}
+
+/* Long-click summon: press and hold one mouse button. Off by
+   default; the user records the button + hold length in settings. */
+function applyLongClick() {
+  if (!longclick || !longclick.available) return;
+  longclick.setConfig(settings.longClick || null, requestToggle);
 }
 
 function configPaths() {
@@ -146,19 +176,28 @@ function clearRefreshToken() {
   try { fs.unlinkSync(tokenPath()); } catch (e) { /* already gone */ }
 }
 
+/* Frameless + transparent window: no window chrome, no rectangular
+   frame, no solid background — just the bubble tree floating on the
+   desktop, with the desktop showing through behind and around it.
+   The renderer makes transparent areas click-through (via
+   sideshow:ignore-mouse) so clicks outside the bubble reach the
+   desktop and the click-away-to-hide behaviour still works. The
+   bubble itself is the hit area and the drag handle (the root
+   bubble, via sideshow:drag-start / sideshow:drag-move). */
 function createPanel() {
   panel = new BrowserWindow({
     width: 400,
     height: 560,
     show: false,
     frame: false,
+    transparent: true,
+    hasShadow: false,
     resizable: false,
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
     alwaysOnTop: true,
     skipTaskbar: true,
-    backgroundColor: "#faf6f1",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -175,6 +214,18 @@ function togglePanel() {
   if (!panel) return;
   if (panel.isVisible()) { hidePanel(); return; }
   showPanel();
+}
+
+/* Summon guard: several summon sources can fire on one physical
+   interaction (e.g. a long hold matching both the gesture and the
+   long-click). Ignore a second toggle within 300 ms so the panel
+   does not show and immediately hide again. */
+let lastToggleAt = 0;
+function requestToggle() {
+  const now = Date.now();
+  if (now - lastToggleAt < 300) return;
+  lastToggleAt = now;
+  togglePanel();
 }
 
 /* Smooth open/close: fade the window in/out instead of an instant
@@ -221,19 +272,27 @@ function showPanel() {
   const bounds = display.workArea;
   const pos = panelPositionNearCursor(cursor, bounds);
   panel.setPosition(pos.x, pos.y);
+  /* Start click-through: the transparent area around the bubble must
+     not swallow desktop clicks. The renderer re-enables mouse input
+     (ignore=false) when the pointer is over the bubble. */
+  try { panel.setIgnoreMouseEvents(true, { forward: true }); } catch (e) { /* click-through unsupported */ }
   if (fadeTimer) { clearInterval(fadeTimer); fadeTimer = null; }
   const dur = fadeDurationMs();
+  /* Cursor position relative to the panel, so the renderer can set
+     the initial click-through state (the pointer starts near the
+     top-left of the window). */
+  const relCursor = { x: cursor.x - pos.x, y: cursor.y - pos.y };
   if (dur <= 0) {
     setPanelOpacity(1);
     panel.show();
     panel.focus();
-    panel.webContents.send("sideshow:panel-showing");
+    panel.webContents.send("sideshow:panel-showing", relCursor);
     return;
   }
   setPanelOpacity(0);
   panel.show();
   panel.focus();
-  panel.webContents.send("sideshow:panel-showing");
+  panel.webContents.send("sideshow:panel-showing", relCursor);
   let o = 0;
   const step = 30 / dur;
   fadeTimer = setInterval(() => {
@@ -285,7 +344,21 @@ function createTray() {
     { type: "separator" },
     { label: "Quit", click: () => app.quit() },
   ]));
-  tray.on("click", togglePanel);
+  /* Tray: single-click toggles (after a short delay so a double-click
+     is not also a single-click), double-click toggles at once. Either
+     way the panel toggles exactly once. */
+  let trayClickTimer = null;
+  tray.on("click", () => {
+    if (trayClickTimer) return;
+    trayClickTimer = setTimeout(() => {
+      trayClickTimer = null;
+      requestToggle();
+    }, 250);
+  });
+  tray.on("double-click", () => {
+    if (trayClickTimer) { clearTimeout(trayClickTimer); trayClickTimer = null; }
+    requestToggle();
+  });
 }
 
 /* ---------- reminders + badge (optional; never blocks the core) ----------
@@ -581,6 +654,32 @@ ipcMain.handle("sideshow:copy", (_e, text) => {
 
 ipcMain.handle("sideshow:hide", () => { hidePanel(); return true; });
 
+/* Transparent window: the renderer makes transparent areas
+   click-through (ignore=true, forwarded so it still gets mousemove)
+   and re-enables input over the bubble (ignore=false). */
+ipcMain.handle("sideshow:ignore-mouse", (_e, ignore) => {
+  try {
+    if (panel) panel.setIgnoreMouseEvents(!!ignore, { forward: true });
+  } catch (err) { /* click-through unsupported on this platform */ }
+  return true;
+});
+
+/* Custom drag: the root bubble is the drag handle. The renderer
+   sends the window position at drag start, then deltas as the
+   pointer moves. A click without a move is a click, not a drag. */
+let dragStartPos = null;
+ipcMain.handle("sideshow:drag-start", () => {
+  dragStartPos = panel ? panel.getPosition() : null;
+  return true;
+});
+ipcMain.handle("sideshow:drag-move", (_e, dx, dy) => {
+  if (panel && dragStartPos) {
+    panel.setPosition(Math.round(dragStartPos[0] + (dx || 0)), Math.round(dragStartPos[1] + (dy || 0)));
+  }
+  return true;
+});
+ipcMain.handle("sideshow:drag-end", () => { dragStartPos = null; return true; });
+
 ipcMain.handle("sideshow:config-status", () => configStatus());
 
 ipcMain.handle("sideshow:firebase-config", () => {
@@ -630,7 +729,15 @@ ipcMain.handle("sideshow:get-gesture", () => {
 
 ipcMain.handle("sideshow:record-gesture", async () => {
   if (!gesture || !gesture.available) return { ok: false, error: "Gesture unavailable on this system." };
-  const result = await gesture.record();
+  /* Pause the long-click detector while recording, so a hold does
+     not also fire a long-click summon and hide the panel. */
+  if (longclick) longclick.setPaused(true);
+  let result;
+  try {
+    result = await gesture.record();
+  } finally {
+    if (longclick) longclick.setPaused(false);
+  }
   if (result.gesture) {
     settings.gesture = result.gesture;
     saveSettings();
@@ -645,6 +752,87 @@ ipcMain.handle("sideshow:clear-gesture", () => {
   saveSettings();
   applyGesture();
   return true;
+});
+
+/* Double-tap summon: which modifier key, tapped twice, summons the
+   panel. Default Shift. Only Shift / Control / Alt / Meta are
+   accepted — a letter would fire while typing. */
+ipcMain.handle("sideshow:get-doubletap-key", () => settings.doubleTapKey || "Shift");
+
+ipcMain.handle("sideshow:set-doubletap-key", (_e, name) => {
+  const valid = ["Shift", "Control", "Alt", "Meta"];
+  settings.doubleTapKey = valid.indexOf(name) >= 0 ? name : "Shift";
+  saveSettings();
+  applyDoubleTap();
+  return settings.doubleTapKey;
+});
+
+ipcMain.handle("sideshow:capture-doubletap-key", async () => {
+  if (!doubletap || !doubletap.available) return { ok: false, error: "Double-tap unavailable on this system." };
+  const res = await doubletap.captureKey();
+  if (res && res.key) {
+    settings.doubleTapKey = res.key;
+    saveSettings();
+    applyDoubleTap();
+    return { ok: true, key: res.key };
+  }
+  return { ok: false, error: (res && res.error) || "Could not capture a key." };
+});
+
+/* Long-click summon: press and hold one mouse button. Off by
+   default. The user records it by performing the hold; the button
+   and the hold length become the setting. While recording, the
+   gesture detector is paused so a hold does not also fire a gesture. */
+ipcMain.handle("sideshow:get-longclick", () => {
+  const cfg = settings.longClick || null;
+  return { config: cfg, label: longclick ? longclick.describe(cfg) : "None", available: !!(longclick && longclick.available) };
+});
+
+ipcMain.handle("sideshow:record-longclick", async () => {
+  if (!longclick || !longclick.available) return { ok: false, error: "Long-click unavailable on this system." };
+  if (gesture) gesture.setPaused(true);
+  let res;
+  try {
+    res = await longclick.record();
+  } finally {
+    if (gesture) gesture.setPaused(false);
+  }
+  if (res && res.config) {
+    settings.longClick = res.config;
+    saveSettings();
+    applyLongClick();
+    return { ok: true, config: res.config, label: longclick.describe(res.config) };
+  }
+  return { ok: false, error: (res && res.error) || "Could not record a hold." };
+});
+
+ipcMain.handle("sideshow:clear-longclick", () => {
+  settings.longClick = null;
+  saveSettings();
+  applyLongClick();
+  return true;
+});
+
+/* Bubble appearance: "glass" (Liquid Glass, frosted) | "shaded"
+   (soft tinted) | "clear" (nearly transparent). Default glass.
+   Transparency is a 0–100 level (default 50) for how glassy the
+   bubble is. Both persist. */
+const APPEARANCES = ["glass", "shaded", "clear"];
+ipcMain.handle("sideshow:get-appearance", () => settings.appearance || "glass");
+ipcMain.handle("sideshow:set-appearance", (_e, value) => {
+  settings.appearance = APPEARANCES.indexOf(value) >= 0 ? value : "glass";
+  saveSettings();
+  return settings.appearance;
+});
+ipcMain.handle("sideshow:get-transparency", () => {
+  const v = settings.transparency;
+  return (typeof v === "number" && v >= 0 && v <= 100) ? v : 50;
+});
+ipcMain.handle("sideshow:set-transparency", (_e, value) => {
+  const v = Math.max(0, Math.min(100, Math.round(+value || 0)));
+  settings.transparency = v;
+  saveSettings();
+  return v;
 });
 
 ipcMain.handle("sideshow:get-sound", () => settings.sound !== false);
@@ -713,14 +901,18 @@ app.whenReady().then(() => {
   }
   createPanel();
   createTray();
-  globalShortcut.register(currentHotkey, togglePanel);
+  globalShortcut.register(currentHotkey, requestToggle);
   applyGesture();
+  applyDoubleTap();
+  applyLongClick();
   if (process.platform === "darwin") app.dock.hide();
 });
 
 app.on("will-quit", () => {
   globalShortcut.unregisterAll();
   if (gesture) gesture.stop();
+  if (doubletap) doubletap.stop();
+  if (longclick) longclick.stop();
   stopOAuthServer();
 });
 

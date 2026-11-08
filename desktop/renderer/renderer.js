@@ -1,15 +1,18 @@
 "use strict";
-/* Sideshow panel — reads the saved Main Eventer events from Firestore
-   (read-only) and shows each field as a clickable chip. Click a chip to
-   copy that exact value; paste it wherever you are working. */
+/* Sideshow panel — the bubble. One floating outline bubble tree:
+   Event Bank root -> event bubbles -> value bubbles (click to copy).
+   Reads the saved Main Eventer events from Firestore (read-only).
+   Settings live in a separate view, opened with the gear. */
 
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
-import { eventChips, eventTitle, eventSubtitle, eventMatches, fieldValueForKey } from "./fields.js";
+import { eventTitle, eventSubtitle, fieldValueForKey } from "./fields.js";
 
 const ALLOWLIST = ["kylematthewberry@gmail.com", "rochelleberry731@gmail.com"];
 const COLLECTION = "mainEvent_events";
+/* Single-key shortcuts (bubble view, expanded event): n name, d date,
+   t time range, p price, a ages, h host, l location. */
 const SINGLE_KEYS = ["n", "d", "t", "p", "a", "h", "l"];
 
 const $ = (id) => document.getElementById(id);
@@ -17,14 +20,20 @@ let auth = null;
 let db = null;
 let events = [];
 let unsubscribe = null;
-let queryText = "";
-let focusedEvent = null;
+let focusedEvent = null; /* the expanded event (accordion) */
 let capturingHotkey = false;
 let recordingGesture = false;
+let capturingDoubleTap = false;
+let recordingLongClick = false;
 let soundOn = true;
 let audioCtx = null;
-let motionSetting = null; /* explicit user choice: "full"|"reduced"|"off"|null */
+let motionSetting = null; /* explicit user choice: "full"|"reduced"|"off"|null (follow OS) */
 let remindersOn = true;
+let accentSetting = null; /* null = platform default */
+let appearanceSetting = "glass"; /* glass | shaded | clear */
+let transparencySetting = 50; /* 0-100 */
+let currentView = "bubble"; /* bubble | settings */
+let signedIn = false;
 
 /* ---------- sound: gentle bubble/pop, synthesized (Web Audio) ---------- */
 
@@ -142,7 +151,7 @@ const ACCENT_SWATCHES = [
   { value: "#4a6fa5", label: "Blue" },
   { value: "#7a4a6e", label: "Plum" },
 ];
-let accentSetting = null;
+let accentSettingValue = null;
 
 /* Blend two hex colors. t = weight of `a` (0..1). */
 function mixHex(a, b, t) {
@@ -164,17 +173,17 @@ function isDarkScheme() {
    CSS platform default applies. */
 function applyAccent() {
   const root = document.documentElement;
-  if (!accentSetting) {
+  if (!accentSettingValue) {
     root.style.removeProperty("--accent");
     root.style.removeProperty("--accent-ink");
     root.style.removeProperty("--good");
     root.style.removeProperty("--good-bg");
     return;
   }
-  const hex = accentSetting;
+  const hex = accentSettingValue;
   root.style.setProperty("--accent", hex);
   root.style.setProperty("--good", hex);
-  /* Light tint for the copied-chip background. */
+  /* Light tint for the copied-bubble background. */
   const bg = isDarkScheme() ? mixHex(hex, "#1d1712", 0.3) : mixHex(hex, "#ffffff", 0.12);
   root.style.setProperty("--good-bg", bg);
   /* Readable ink on the accent (white on dark accents, dark on light). */
@@ -190,13 +199,13 @@ function buildAccentSwatches() {
   ACCENT_SWATCHES.forEach((s) => {
     const b = document.createElement("button");
     b.type = "button";
-    b.className = "swatch" + (s.value === null ? " default" : "") + (accentSetting === s.value ? " selected" : "");
+    b.className = "swatch" + (s.value === null ? " default" : "") + (accentSettingValue === s.value ? " selected" : "");
     b.setAttribute("aria-label", "Accent " + s.label);
     b.title = s.label;
     if (s.value) b.style.background = s.value;
     b.addEventListener("click", async () => {
-      accentSetting = s.value;
-      try { await window.sideshow.setAccent(accentSetting); } catch (e) { /* stays local */ }
+      accentSettingValue = s.value;
+      try { await window.sideshow.setAccent(accentSettingValue); } catch (e) { /* stays local */ }
       applyAccent();
       wrap.querySelectorAll(".swatch").forEach((el) => el.classList.remove("selected"));
       b.classList.add("selected");
@@ -205,37 +214,51 @@ function buildAccentSwatches() {
   });
 }
 
+/* ---------- bubble appearance ---------- */
+
+/* Liquid Glass (frosted), Shaded (soft tint), Transparent (nearly
+   clear). Transparency 0–100 maps to the bubble fill alpha
+   0.05–1.0. Default: Liquid Glass at middle transparency. */
+function applyAppearance() {
+  const root = document.documentElement;
+  root.classList.remove("appearance-glass", "appearance-shaded", "appearance-clear");
+  root.classList.add("appearance-" + (appearanceSetting || "glass"));
+  const alpha = 0.05 + (Math.max(0, Math.min(100, transparencySetting)) / 100) * 0.95;
+  root.style.setProperty("--bubble-alpha", alpha.toFixed(2));
+  const g = $("appearanceGlassBtn"), s = $("appearanceShadedBtn"), c = $("appearanceClearBtn");
+  if (g) g.classList.toggle("active", appearanceSetting === "glass");
+  if (s) s.classList.toggle("active", appearanceSetting === "shaded");
+  if (c) c.classList.toggle("active", appearanceSetting === "clear");
+  const slider = $("transparencySlider");
+  if (slider) slider.value = String(transparencySetting);
+}
+
+/* ---------- state / status ---------- */
+
 function setState(name) {
   ["loading", "config", "signin", "empty", "list", "error"].forEach((s) => {
     const el = $("state-" + s);
     if (el) el.classList.toggle("show", s === name);
   });
+  /* The tree shows the sign-in / empty bubbles itself, so it stays
+     visible for signin/empty/list; it hides for loading/config/error. */
+  const tree = $("bubbleTree");
+  if (tree) {
+    const hideTree = ["loading", "config", "error"].indexOf(name) >= 0;
+    tree.style.display = hideTree ? "none" : "";
+  }
 }
 
 function setStatus(msg) {
   const el = $("status");
   if (el) el.textContent = msg || "";
+  const sel = $("settingsStatus");
+  if (sel) sel.textContent = msg || "";
 }
 
-function copyValue(value, chipEl) {
-  if (!value) return;
-  window.sideshow.copy(value).then(() => {
-    if (chipEl) {
-      chipEl.classList.add("copied");
-      chipEl.classList.remove("pop");
-      void chipEl.offsetWidth;
-      chipEl.classList.add("pop");
-      setTimeout(() => chipEl.classList.remove("copied"), 1200);
-      setTimeout(() => chipEl.classList.remove("pop"), 300);
-    }
-    playCopySound();
-  });
-}
+/* ---------- copy feedback (pop + drawing checkmark, no text) ---------- */
 
-/* Animated confirm mark for a chip: a copy icon draws, then a
-   checkmark draws itself. Shown in place of the value while the
-   chip is in its copied state. No text confirmation. */
-const CONFIRM_SVG = '<svg class="chip-confirm" viewBox="0 0 24 24" aria-hidden="true">'
+const CONFIRM_SVG = '<svg class="bubble-confirm" viewBox="0 0 24 24" aria-hidden="true">'
   + '<g class="copy-icon">'
   + '<rect class="draw" pathLength="1" x="9" y="9" width="11" height="11" rx="2"/>'
   + '<rect class="draw" pathLength="1" x="4" y="4" width="11" height="11" rx="2"/>'
@@ -243,22 +266,207 @@ const CONFIRM_SVG = '<svg class="chip-confirm" viewBox="0 0 24 24" aria-hidden="
   + '<path class="draw-check" pathLength="1" d="M5 12.5 L10 17.5 L19 7"/>'
   + '</svg>';
 
-/* Focus one event card (the "expanded"/focused event the single-key
-   shortcuts apply to). A light tick plays when the focus moves to a
-   different event — the list equivalent of an expand/collapse. */
-function focusEvent(ev, cardEl, tick) {
-  const changed = focusedEvent !== ev;
-  focusedEvent = ev;
-  if (cardEl) {
-    const list = $("eventList");
-    if (list) list.querySelectorAll(".event").forEach((el) => el.classList.remove("focused"));
-    cardEl.classList.add("focused");
-  }
-  if (changed && tick) playTickSound();
+const COPY_SVG = '<svg class="copy-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+
+function copyValue(value, bubbleEl) {
+  if (!value) return;
+  window.sideshow.copy(value).then(() => {
+    if (bubbleEl) {
+      bubbleEl.classList.add("copied");
+      bubbleEl.classList.remove("pop");
+      void bubbleEl.offsetWidth;
+      bubbleEl.classList.add("pop");
+      setTimeout(() => bubbleEl.classList.remove("copied"), 1200);
+      setTimeout(() => bubbleEl.classList.remove("pop"), 300);
+    }
+    playCopySound();
+  });
 }
 
-/* Send the saved events to main for the badge count and reminders.
-   Only the fields main needs: id, name, date, startTime. */
+/* ---------- bubble tree ---------- */
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[c]);
+}
+
+/* The value bubbles for one event, in single-key order. The Time
+   bubble is a single range (start–end) with key T, matching the
+   single-key mapping — not separate Start/End bubbles. */
+function valueBubblesFor(ev) {
+  return SINGLE_KEYS
+    .map((key) => ({ key, value: fieldValueForKey(ev, key) }))
+    .filter((v) => v.value);
+}
+
+function render() {
+  const tree = $("bubbleTree");
+  if (!tree) return;
+  if (focusedEvent && !events.some((e) => e._id === focusedEvent._id)) focusedEvent = null;
+  tree.innerHTML = "";
+
+  /* Root bubble — the Event Bank. Drag it to move the panel; click
+     it (no drag) to toggle the focused event open/closed. */
+  const root = document.createElement("button");
+  root.type = "button";
+  root.className = "bubble root-bubble";
+  root.innerHTML = '<span class="root-text">Event Bank</span>';
+  root.addEventListener("mousedown", onRootMouseDown);
+  tree.appendChild(root);
+
+  const connector = document.createElement("div");
+  connector.className = "tree-connector";
+  tree.appendChild(connector);
+
+  if (!signedIn) {
+    const signin = document.createElement("button");
+    signin.type = "button";
+    signin.className = "bubble signin-bubble";
+    signin.innerHTML = '<span class="value-text">Sign in</span>';
+    signin.addEventListener("click", () => window.sideshow.signIn());
+    tree.appendChild(signin);
+    setState("signin");
+    return;
+  }
+
+  if (!events.length) {
+    const empty = document.createElement("div");
+    empty.className = "bubble empty-bubble";
+    empty.textContent = "No saved events yet.";
+    tree.appendChild(empty);
+    setState("empty");
+    return;
+  }
+
+  setState("list");
+  events.forEach((ev) => {
+    const isExpanded = focusedEvent && focusedEvent._id === ev._id;
+    const item = document.createElement("div");
+    item.className = "event-branch" + (isExpanded ? " expanded" : "");
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "bubble event-bubble";
+    btn.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+    const sub = eventSubtitle(ev);
+    btn.innerHTML =
+      '<span class="event-title">' + escapeHtml(eventTitle(ev)) + "</span>" +
+      (sub ? '<span class="event-sub">' + escapeHtml(sub) + "</span>" : "") +
+      '<span class="expand-mark">' + (isExpanded ? "−" : "+") + "</span>";
+    btn.addEventListener("click", () => {
+      focusedEvent = isExpanded ? null : ev;
+      if (isExpanded) playCloseSound(); else playTickSound();
+      render();
+    });
+    item.appendChild(btn);
+
+    if (isExpanded) {
+      const values = document.createElement("div");
+      values.className = "value-branch";
+      valueBubblesFor(ev).forEach(({ key, value }) => {
+        const vb = document.createElement("button");
+        vb.type = "button";
+        vb.className = "bubble value-bubble";
+        vb.dataset.key = key;
+        vb.innerHTML = COPY_SVG + '<span class="key-badge">' + key.toUpperCase() + '</span><span class="value-text">' + escapeHtml(value) + "</span>" + CONFIRM_SVG;
+        vb.addEventListener("click", () => copyValue(value, vb));
+        values.appendChild(vb);
+      });
+      item.appendChild(values);
+    }
+
+    tree.appendChild(item);
+  });
+}
+
+/* ---------- root-bubble drag (the bubble is the drag handle) ---------- */
+
+let dragState = null;
+function onRootMouseDown(e) {
+  if (e.button !== 0) return;
+  dragState = { startX: e.clientX, startY: e.clientY, dx: 0, dy: 0, moved: false, raf: null };
+  window.sideshow.dragStart();
+  e.preventDefault();
+}
+document.addEventListener("mousemove", (e) => {
+  if (!dragState) return;
+  dragState.dx = e.clientX - dragState.startX;
+  dragState.dy = e.clientY - dragState.startY;
+  if (Math.abs(dragState.dx) + Math.abs(dragState.dy) > 4) dragState.moved = true;
+  if (dragState.moved && !dragState.raf) {
+    dragState.raf = requestAnimationFrame(() => {
+      dragState.raf = null;
+      if (dragState) window.sideshow.dragMove(dragState.dx, dragState.dy);
+    });
+  }
+});
+document.addEventListener("mouseup", () => {
+  if (!dragState) return;
+  const wasDrag = dragState.moved;
+  if (dragState.raf) cancelAnimationFrame(dragState.raf);
+  dragState = null;
+  window.sideshow.dragEnd();
+  /* Click without a drag toggles the focused event open/closed. */
+  if (!wasDrag) {
+    if (focusedEvent) { focusedEvent = null; render(); }
+    else if (events.length) { focusedEvent = events[0]; playTickSound(); render(); }
+  }
+});
+
+/* ---------- transparent window: click-through ---------- */
+
+/* The window is transparent, so clicks on empty space must reach the
+   desktop (ignore=true, forwarded). Clicks on a bubble, a button, or
+   the settings card must reach the app (ignore=false). Only send IPC
+   when the state changes. */
+const CLICKABLE_SELECTOR = "button, input, select, .bubble, .value-bubble, .settings-view, a";
+let ignoreMouseState = null;
+function updateIgnoreMouse(x, y) {
+  const el = document.elementFromPoint(x, y);
+  const overInteractive = !!(el && el.closest && el.closest(CLICKABLE_SELECTOR));
+  const ignore = !overInteractive;
+  if (ignore !== ignoreMouseState) {
+    ignoreMouseState = ignore;
+    window.sideshow.setIgnoreMouseEvents(ignore);
+  }
+}
+let mouseMoveRaf = null;
+let lastMousePos = null;
+document.addEventListener("mousemove", (e) => {
+  lastMousePos = { x: e.clientX, y: e.clientY };
+  if (mouseMoveRaf) return;
+  mouseMoveRaf = requestAnimationFrame(() => {
+    mouseMoveRaf = null;
+    if (lastMousePos) updateIgnoreMouse(lastMousePos.x, lastMousePos.y);
+  });
+});
+document.addEventListener("mouseleave", () => { lastMousePos = null; });
+
+/* ---------- views: bubble <-> settings ---------- */
+
+function showSettingsView() {
+  currentView = "settings";
+  const bv = $("bubbleView"), sv = $("settingsView");
+  if (bv) bv.hidden = true;
+  if (sv) sv.hidden = false;
+  refreshSettingsUI();
+  /* Settings is a solid card — clicks on it reach the app. */
+  ignoreMouseState = null;
+  if (lastMousePos) updateIgnoreMouse(lastMousePos.x, lastMousePos.y);
+  else window.sideshow.setIgnoreMouseEvents(false);
+}
+function showBubbleView() {
+  currentView = "bubble";
+  const bv = $("bubbleView"), sv = $("settingsView");
+  if (sv) sv.hidden = true;
+  if (bv) bv.hidden = false;
+  ignoreMouseState = null;
+  if (lastMousePos) updateIgnoreMouse(lastMousePos.x, lastMousePos.y);
+}
+
+/* ---------- send the saved events to main (badge + reminders) ---------- */
+
 function syncEventsToMain() {
   try {
     const list = events.map((ev) => ({
@@ -271,7 +479,7 @@ function syncEventsToMain() {
   } catch (e) { /* badge/reminders skipped; panel still works */ }
 }
 
-/* Open one event by id (from a reminder notification click): focus
+/* Open one event by id (from a reminder notification click): expand
    it and scroll it into view. */
 function openEventById(id) {
   if (!id) return;
@@ -279,79 +487,19 @@ function openEventById(id) {
   if (!ev) return;
   focusedEvent = ev;
   render();
-  const card = document.querySelector("#eventList .event.focused");
+  const card = document.querySelector("#bubbleTree .event-branch.expanded");
   if (card) card.scrollIntoView({ block: "nearest" });
 }
 
-function render() {
-  const list = $("eventList");
-  if (!list) return;
-  const filtered = events.filter((ev) => eventMatches(ev, queryText));
-  list.innerHTML = "";
-  if (!filtered.length) {
-    focusedEvent = null;
-    setState(events.length ? "empty" : "empty");
-    return;
-  }
-  setState("list");
-  if (!focusedEvent || filtered.indexOf(focusedEvent) < 0) focusedEvent = filtered[0];
-  filtered.forEach((ev) => {
-    const card = document.createElement("div");
-    card.className = "event" + (ev === focusedEvent ? " focused" : "");
-    card.addEventListener("click", () => {
-      focusEvent(ev, card, true);
-    });
-    const head = document.createElement("div");
-    head.className = "event-head";
-    const title = document.createElement("div");
-    title.className = "event-title";
-    title.textContent = eventTitle(ev);
-    const sub = document.createElement("div");
-    sub.className = "event-sub";
-    sub.textContent = eventSubtitle(ev);
-    head.appendChild(title);
-    if (sub.textContent) head.appendChild(sub);
-    card.appendChild(head);
-    const chips = document.createElement("div");
-    chips.className = "chips";
-    eventChips(ev).forEach((chip) => {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "chip";
-      b.dataset.key = chip.key || "";
-      if (chip.key) {
-        const kb = document.createElement("span");
-        kb.className = "chip-key";
-        kb.textContent = chip.key.toUpperCase();
-        b.appendChild(kb);
-      }
-      const k = document.createElement("span");
-      k.className = "chip-k";
-      k.textContent = chip.label;
-      const v = document.createElement("span");
-      v.className = "chip-v";
-      v.textContent = chip.value;
-      b.appendChild(k);
-      b.appendChild(v);
-      b.insertAdjacentHTML("beforeend", CONFIRM_SVG);
-      b.addEventListener("click", (e) => {
-        e.stopPropagation();
-        focusEvent(ev, card, false);
-        copyValue(chip.value, b);
-      });
-      chips.appendChild(b);
-    });
-    card.appendChild(chips);
-    list.appendChild(card);
-  });
-}
+/* ---------- single-key shortcuts ---------- */
 
-/* Single-key shortcuts: while the panel is open, pressing a letter
-   copies that field from the focused event (most recently clicked).
-   Never fires while typing in the search box or while capturing a
-   new hotkey. */
+/* While the panel is open, pressing a letter copies that field from
+   the expanded event. Never fires while capturing a hotkey, a
+   double-tap key, a gesture, or a long-click, and never in the
+   settings view. */
 function handleSingleKey(e) {
-  if (capturingHotkey || recordingGesture) return;
+  if (currentView !== "bubble") return;
+  if (capturingHotkey || capturingDoubleTap || recordingGesture || recordingLongClick) return;
   const tag = (document.activeElement && document.activeElement.tagName) || "";
   if (tag === "INPUT" || tag === "TEXTAREA") return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -361,9 +509,11 @@ function handleSingleKey(e) {
   const value = fieldValueForKey(focusedEvent, key);
   if (!value) return;
   e.preventDefault();
-  const chipEl = document.querySelector('.chip[data-key="' + key + '"]');
-  copyValue(value, chipEl);
+  const vb = document.querySelector('.value-bubble[data-key="' + key + '"]');
+  copyValue(value, vb);
 }
+
+/* ---------- firebase + events ---------- */
 
 function subscribe() {
   if (unsubscribe) { unsubscribe(); unsubscribe = null; }
@@ -396,6 +546,8 @@ function updateAuthUI(user) {
   }
 }
 
+/* Sign in with the ID token main obtained via the desktop OAuth flow.
+   The OAuth client secret never reaches the renderer. */
 async function signInWithIdToken(idToken) {
   try {
     const cred = GoogleAuthProvider.credential(idToken);
@@ -421,6 +573,7 @@ async function init() {
   auth = getAuth();
   db = getFirestore();
   onAuthStateChanged(auth, (user) => {
+    signedIn = !!user && ALLOWLIST.indexOf((user.email || "").toLowerCase()) >= 0;
     updateAuthUI(user);
     if (user) {
       const email = (user.email || "").toLowerCase();
@@ -429,13 +582,16 @@ async function init() {
         window.sideshow.signOut();
         setStatus("That Google account is not on the studio list.");
         setState("signin");
+        render();
         return;
       }
       subscribe();
     } else {
       if (unsubscribe) { unsubscribe(); unsubscribe = null; }
       events = [];
+      focusedEvent = null;
       setState("signin");
+      render();
     }
   });
   window.sideshow.onAuthToken((data) => {
@@ -450,12 +606,19 @@ async function init() {
   } catch (e) { /* stays signed out */ }
 }
 
+/* ---------- settings view ---------- */
+
 async function refreshSettingsUI() {
   try {
     const hk = await window.sideshow.getHotkey();
     const btn = $("hotkeyBtn");
     if (btn && !capturingHotkey) btn.textContent = friendlyHotkey(hk);
   } catch (e) { /* hotkey display stays as-is */ }
+  try {
+    const key = await window.sideshow.getDoubleTapKey();
+    const btn = $("doubletapBtn");
+    if (btn && !capturingDoubleTap) btn.textContent = key || "Shift";
+  } catch (e) { /* double-tap display stays as-is */ }
   try {
     const g = await window.sideshow.getGesture();
     const btn = $("gestureBtn");
@@ -464,6 +627,14 @@ async function refreshSettingsUI() {
     if (clearBtn) clearBtn.style.display = g.gesture ? "" : "none";
     if (btn) btn.disabled = !g.available;
   } catch (e) { /* gesture display stays as-is */ }
+  try {
+    const res = await window.sideshow.getLongClick();
+    const btn = $("longclickBtn");
+    const clearBtn = $("longclickClearBtn");
+    if (btn) btn.textContent = res && res.available ? (res.label || "None") : "Unavailable";
+    if (clearBtn) clearBtn.style.display = res && res.config ? "" : "none";
+    if (btn) btn.disabled = !(res && res.available);
+  } catch (e) { /* long-click display stays as-is */ }
   try {
     const on = await window.sideshow.getSound();
     soundOn = !!on;
@@ -482,11 +653,20 @@ async function refreshSettingsUI() {
     if (btn) btn.textContent = remindersOn ? "🔔" : "🔕";
   } catch (e) { /* reminders stay on */ }
   try {
-    accentSetting = await window.sideshow.getAccent();
+    accentSettingValue = await window.sideshow.getAccent();
     applyAccent();
     buildAccentSwatches();
   } catch (e) { /* accent stays platform default */ }
+  try {
+    const a = await window.sideshow.getAppearance();
+    if (a) appearanceSetting = a;
+    const t = await window.sideshow.getTransparency();
+    if (typeof t === "number") transparencySetting = t;
+    applyAppearance();
+  } catch (e) { /* appearance stays Liquid Glass, middle */ }
 }
+
+/* ---------- wiring ---------- */
 
 document.addEventListener("DOMContentLoaded", () => {
   const platform = (window.sideshow && window.sideshow.platform) || "";
@@ -496,6 +676,7 @@ document.addEventListener("DOMContentLoaded", () => {
   applyMotion();
   applyAccent();
   buildAccentSwatches();
+  applyAppearance();
   try {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (mq && mq.addEventListener) mq.addEventListener("change", () => { if (!motionSetting) applyMotion(); });
@@ -504,8 +685,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const dm = window.matchMedia("(prefers-color-scheme: dark)");
     if (dm && dm.addEventListener) dm.addEventListener("change", () => applyAccent());
   } catch (e) { /* color-scheme listener unavailable */ }
-  const search = $("search");
-  if (search) search.addEventListener("input", () => { queryText = search.value.trim(); render(); });
+
   const signInBtn = $("signInBtn");
   if (signInBtn) signInBtn.addEventListener("click", () => window.sideshow.signIn());
   const signOutBtn = $("signOutBtn");
@@ -515,8 +695,16 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   const closeBtn = $("closeBtn");
   if (closeBtn) closeBtn.addEventListener("click", () => window.sideshow.hide());
+  const settingsBtn = $("settingsBtn");
+  if (settingsBtn) settingsBtn.addEventListener("click", () => { playTickSound(); showSettingsView(); });
+  const settingsBackBtn = $("settingsBackBtn");
+  if (settingsBackBtn) settingsBackBtn.addEventListener("click", () => showBubbleView());
+  const settingsCloseBtn = $("settingsCloseBtn");
+  if (settingsCloseBtn) settingsCloseBtn.addEventListener("click", () => window.sideshow.hide());
   const cfgBtn = $("openConfigBtn");
   if (cfgBtn) cfgBtn.addEventListener("click", () => window.sideshow.openConfigFolder());
+
+  /* Hotkey — click, then press a new combination. */
   const hotkeyBtn = $("hotkeyBtn");
   if (hotkeyBtn) hotkeyBtn.addEventListener("click", () => {
     if (capturingHotkey) return;
@@ -524,6 +712,32 @@ document.addEventListener("DOMContentLoaded", () => {
     hotkeyBtn.textContent = "Press keys…";
     hotkeyBtn.classList.add("listening");
   });
+
+  /* Double-tap — tap a modifier key (Shift / Control / Alt / Meta). */
+  const doubletapBtn = $("doubletapBtn");
+  if (doubletapBtn) doubletapBtn.addEventListener("click", async () => {
+    if (capturingDoubleTap) return;
+    capturingDoubleTap = true;
+    doubletapBtn.textContent = "Tap a key…";
+    doubletapBtn.classList.add("listening");
+    try {
+      const res = await window.sideshow.captureDoubleTapKey();
+      if (res && res.ok) {
+        doubletapBtn.textContent = res.key;
+        flashSaved(doubletapBtn);
+      } else {
+        setStatus((res && res.error) || "Could not capture a key.");
+        await refreshSettingsUI();
+      }
+    } catch (e) {
+      setStatus("Could not capture a key.");
+      await refreshSettingsUI();
+    }
+    capturingDoubleTap = false;
+    doubletapBtn.classList.remove("listening");
+  });
+
+  /* Gesture — record, or clear. */
   const gestureBtn = $("gestureBtn");
   if (gestureBtn) gestureBtn.addEventListener("click", async () => {
     if (recordingGesture) return;
@@ -555,6 +769,41 @@ document.addEventListener("DOMContentLoaded", () => {
     await window.sideshow.clearGesture();
     await refreshSettingsUI();
   });
+
+  /* Long-click — record a hold (button + length), or clear. */
+  const longclickBtn = $("longclickBtn");
+  if (longclickBtn) longclickBtn.addEventListener("click", async () => {
+    if (recordingLongClick) return;
+    recordingLongClick = true;
+    longclickBtn.textContent = "Hold a mouse button…";
+    longclickBtn.classList.add("listening");
+    longclickBtn.disabled = true;
+    try {
+      const res = await window.sideshow.recordLongClick();
+      if (res && res.ok) {
+        longclickBtn.textContent = res.label || "Saved";
+        flashSaved(longclickBtn);
+        const clearBtn = $("longclickClearBtn");
+        if (clearBtn) clearBtn.style.display = "";
+      } else {
+        setStatus((res && res.error) || "Could not record a hold.");
+        await refreshSettingsUI();
+      }
+    } catch (e) {
+      setStatus("Could not record a hold.");
+      await refreshSettingsUI();
+    }
+    recordingLongClick = false;
+    longclickBtn.classList.remove("listening");
+    longclickBtn.disabled = false;
+  });
+  const longclickClearBtn = $("longclickClearBtn");
+  if (longclickClearBtn) longclickClearBtn.addEventListener("click", async () => {
+    await window.sideshow.clearLongClick();
+    await refreshSettingsUI();
+  });
+
+  /* Sound / motion / reminders. */
   const soundBtn = $("soundBtn");
   if (soundBtn) soundBtn.addEventListener("click", async () => {
     soundOn = !soundOn;
@@ -580,9 +829,44 @@ document.addEventListener("DOMContentLoaded", () => {
     flashSaved(remindersBtn);
     if (remindersOn) syncEventsToMain();
   });
-  window.sideshow.onOpenEvent((id) => openEventById(id));
+
+  /* Appearance: Liquid Glass / Shaded / Transparent. */
+  const appearanceGlassBtn = $("appearanceGlassBtn");
+  if (appearanceGlassBtn) appearanceGlassBtn.addEventListener("click", async () => {
+    appearanceSetting = "glass";
+    try { await window.sideshow.setAppearance("glass"); } catch (e) { /* stays local */ }
+    applyAppearance();
+  });
+  const appearanceShadedBtn = $("appearanceShadedBtn");
+  if (appearanceShadedBtn) appearanceShadedBtn.addEventListener("click", async () => {
+    appearanceSetting = "shaded";
+    try { await window.sideshow.setAppearance("shaded"); } catch (e) { /* stays local */ }
+    applyAppearance();
+  });
+  const appearanceClearBtn = $("appearanceClearBtn");
+  if (appearanceClearBtn) appearanceClearBtn.addEventListener("click", async () => {
+    appearanceSetting = "clear";
+    try { await window.sideshow.setAppearance("clear"); } catch (e) { /* stays local */ }
+    applyAppearance();
+  });
+  const transparencySlider = $("transparencySlider");
+  if (transparencySlider) {
+    transparencySlider.addEventListener("input", () => {
+      transparencySetting = Number(transparencySlider.value);
+      applyAppearance();
+    });
+    transparencySlider.addEventListener("change", async () => {
+      try { await window.sideshow.setTransparency(transparencySetting); } catch (e) { /* stays local */ }
+    });
+  }
+
+  /* Keyboard: hotkey capture first, then Esc / single-key shortcuts. */
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") { window.sideshow.hide(); return; }
+    if (e.key === "Escape") {
+      if (currentView === "settings") { showBubbleView(); return; }
+      window.sideshow.hide();
+      return;
+    }
     if (capturingHotkey) {
       const acc = acceleratorFromEvent(e);
       if (!acc) return;
@@ -605,7 +889,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     handleSingleKey(e);
   });
-  window.sideshow.onPanelShowing(() => playOpenSound());
+
+  window.sideshow.onOpenEvent((id) => openEventById(id));
+  /* Panel lifecycle: sound + the initial click-through state, seeded
+     from the cursor position main sends with the showing event. */
+  window.sideshow.onPanelShowing((data) => {
+    playOpenSound();
+    ignoreMouseState = null;
+    if (data && typeof data.x === "number" && typeof data.y === "number") {
+      updateIgnoreMouse(data.x, data.y);
+    }
+  });
   window.sideshow.onPanelHiding(() => playCloseSound());
   refreshSettingsUI();
   init();
