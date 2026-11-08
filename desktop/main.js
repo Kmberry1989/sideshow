@@ -559,7 +559,7 @@ function startSignIn() {
     client_id: config.googleOAuth.clientId,
     redirect_uri: "http://127.0.0.1:" + OAUTH_PORT + "/callback",
     response_type: "code",
-    scope: "openid email profile",
+    scope: "openid email profile https://www.googleapis.com/auth/calendar.readonly",
     state: oauthState,
     code_challenge: challenge,
     code_challenge_method: "S256",
@@ -643,6 +643,79 @@ async function refreshIdToken() {
   if (!data || !data.id_token) { clearRefreshToken(); return null; }
   if (data.refresh_token) storeRefreshToken(data.refresh_token);
   return data.id_token;
+}
+
+/* ---------- Google Calendar (read-only, main process only) ----------
+
+   The access token never leaves main: the renderer asks for calendar
+   lists / events over IPC and gets plain JSON back. The stored
+   refresh token was granted BEFORE the calendar.readonly scope was
+   added, so a refreshed access token only carries that scope after
+   the user signs in again (re-consent). Calendar calls that fail
+   with 401/403 therefore report "scope-missing" so the renderer can
+   show the re-consent note instead of a generic error. */
+
+let cachedAccessToken = null; /* { token, expiresAt } */
+async function getAccessToken() {
+  if (cachedAccessToken && cachedAccessToken.expiresAt > Date.now() + 60000) {
+    return cachedAccessToken.token;
+  }
+  const refreshToken = readRefreshToken();
+  if (!refreshToken || !configStatus().hasOAuth) return null;
+  const data = await postToken({
+    client_id: config.googleOAuth.clientId,
+    client_secret: config.googleOAuth.clientSecret,
+    refresh_token: refreshToken,
+    grant_type: "refresh_token",
+  });
+  if (!data || !data.access_token) return null;
+  if (data.refresh_token) storeRefreshToken(data.refresh_token);
+  const expiresIn = typeof data.expires_in === "number" ? data.expires_in : 3600;
+  cachedAccessToken = { token: data.access_token, expiresAt: Date.now() + expiresIn * 1000 };
+  return cachedAccessToken.token;
+}
+
+/* One authenticated Calendar API GET. Returns { ok, status, data } —
+   data is the parsed JSON body (or null). A null access token means
+   the user is not signed in (error "not-signed-in"); 401/403 means
+   the token lacks the calendar scope (error "scope-missing"). */
+async function gcalGet(url) {
+  const token = await getAccessToken();
+  if (!token) return { ok: false, error: "not-signed-in" };
+  let res;
+  try {
+    res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+  } catch (e) {
+    return { ok: false, error: "fetch-failed" };
+  }
+  if (res.status === 401 || res.status === 403) {
+    cachedAccessToken = null; /* a 401 may mean the token is stale */
+    return { ok: false, error: "scope-missing", status: res.status };
+  }
+  if (!res.ok) return { ok: false, error: "fetch-failed", status: res.status };
+  let data = null;
+  try { data = await res.json(); } catch (e) { data = null; }
+  return { ok: true, status: res.status, data };
+}
+
+function calendarSetting() {
+  const c = settings.calendar;
+  if (!c || typeof c !== "object") return { enabled: false, selectedIds: [] };
+  return {
+    enabled: !!c.enabled,
+    selectedIds: Array.isArray(c.selectedIds) ? c.selectedIds.filter((id) => typeof id === "string") : [],
+  };
+}
+
+function normalizeCalendarSetting(value) {
+  const v = (value && typeof value === "object") ? value : {};
+  const ids = Array.isArray(v.selectedIds) ? v.selectedIds : [];
+  const seen = new Set();
+  const selectedIds = [];
+  ids.forEach((id) => {
+    if (typeof id === "string" && id && !seen.has(id)) { seen.add(id); selectedIds.push(id); }
+  });
+  return { enabled: !!v.enabled, selectedIds: selectedIds.slice(0, 50) };
 }
 
 /* ---------- IPC ---------- */
@@ -879,6 +952,73 @@ ipcMain.handle("sideshow:set-accent", (_e, value) => {
   settings.accent = v;
   saveSettings();
   return settings.accent;
+});
+
+/* Google Calendar setting: off by default, independent of every
+   other setting. { enabled, selectedIds } — selectedIds are the
+   calendar ids the user picked in the multi-select picker. */
+ipcMain.handle("sideshow:get-calendar", () => calendarSetting());
+
+ipcMain.handle("sideshow:set-calendar", (_e, value) => {
+  settings.calendar = normalizeCalendarSetting(value);
+  saveSettings();
+  return settings.calendar;
+});
+
+/* The user's calendars, for the multi-select picker. Only id,
+   summary, primary and backgroundColor cross into the renderer. */
+ipcMain.handle("sideshow:list-calendars", async () => {
+  const res = await gcalGet("https://www.googleapis.com/calendar/v3/users/me/calendarList");
+  if (!res.ok) return { ok: false, error: res.error || "fetch-failed" };
+  const items = (res.data && Array.isArray(res.data.items)) ? res.data.items : [];
+  return {
+    ok: true,
+    calendars: items
+      .filter((c) => c && typeof c.id === "string")
+      .map((c) => ({ id: c.id, summary: c.summary || c.id, primary: !!c.primary, backgroundColor: c.backgroundColor || "" })),
+  };
+});
+
+/* Upcoming events from each requested calendar (up to 50 per
+   calendar, soonest first). Each event carries its calendarId so the
+   renderer can build a stable id. A 401/403 on any calendar means
+   the scope was not granted — the whole call reports scope-missing.
+   Any other per-calendar failure is skipped; if every calendar
+   fails that way the call reports fetch-failed. */
+ipcMain.handle("sideshow:get-calendar-events", async (_e, calendarIds) => {
+  const ids = Array.isArray(calendarIds) ? calendarIds.filter((id) => typeof id === "string" && id) : [];
+  if (!ids.length) return { ok: true, events: [] };
+  const timeMin = new Date().toISOString();
+  const all = [];
+  let otherFailed = false;
+  for (const id of ids) {
+    const url = "https://www.googleapis.com/calendar/v3/calendars/" + encodeURIComponent(id) + "/events"
+      + "?timeMin=" + encodeURIComponent(timeMin) + "&singleEvents=true&orderBy=startTime&maxResults=50";
+    const res = await gcalGet(url);
+    if (!res.ok) {
+      if (res.error === "scope-missing" || res.error === "not-signed-in") {
+        return { ok: false, error: res.error };
+      }
+      otherFailed = true;
+      continue;
+    }
+    const items = (res.data && Array.isArray(res.data.items)) ? res.data.items : [];
+    items.forEach((ev) => {
+      if (!ev || typeof ev !== "object") return;
+      all.push({
+        id: ev.id || "",
+        calendarId: id,
+        summary: ev.summary || "",
+        start: ev.start || {},
+        end: ev.end || {},
+        location: ev.location || "",
+        description: ev.description || "",
+        htmlLink: ev.htmlLink || "",
+      });
+    });
+  }
+  if (!all.length && otherFailed) return { ok: false, error: "fetch-failed" };
+  return { ok: true, events: all };
 });
 
 /* The renderer sends the saved events whenever the list changes.

@@ -82,6 +82,14 @@
           <span class="setting-label">See-through</span>
           <input id="transparencySlider" type="range" min="0" max="100" value="50" aria-label="Transparency" />
         </div>
+        <div class="setting">
+          <span class="setting-label">Google Calendar</span>
+          <button id="calendarToggleBtn" type="button" class="btn plain setting-btn" aria-label="Show Google Calendar events">Off</button>
+        </div>
+        <div id="calendarPicker" class="calendar-picker" hidden>
+          <p id="calendarPickerStatus" class="calendar-status"></p>
+          <div id="calendarList" class="calendar-list"></div>
+        </div>
       </div>
     </div>
     <script src="bundle.js"></script>
