@@ -9,6 +9,12 @@ import { getAuth, GoogleAuthProvider, signInWithCredential, signOut, onAuthState
 import { getFirestore, collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
 import { eventTitle, eventSubtitle, fieldValueForKey } from "./fields.js";
 import { calendarEventToRecord, mergeEvents } from "./calendar.js";
+import {
+  FIELD_KEYS, FIELD_LABELS, FONTS, FONT_LABELS, FONT_CYCLE,
+  WEIGHTS, WEIGHT_LABELS, WEIGHT_CYCLE,
+  CORNER_LABELS, CORNER_CYCLE, ALIGN_LABELS, ALIGN_CYCLE,
+  normalizeBubbleOptions, rgba, readableInkFor,
+} from "../bubble-options.js";
 
 const ALLOWLIST = ["kylematthewberry@gmail.com", "rochelleberry731@gmail.com"];
 const COLLECTION = "mainEvent_events";
@@ -40,6 +46,18 @@ let remindersOn = true;
 let accentSetting = null; /* null = platform default */
 let appearanceSetting = "glass"; /* glass | shaded | clear */
 let transparencySetting = 50; /* 0-100 */
+let positionSetting = "cursor"; /* cursor | top-left | top-right | bottom-left | bottom-right | center | custom */
+let bubbleOptions = normalizeBubbleOptions(null); /* scale, font, weight, border, shadow, bg, corners, align, pulse, text color, per-field styles */
+const POSITION_MODES = ["cursor", "top-left", "top-right", "bottom-left", "bottom-right", "center", "custom"];
+const POSITION_LABELS = {
+  cursor: "Follow cursor",
+  "top-left": "Top-left",
+  "top-right": "Top-right",
+  "bottom-left": "Bottom-left",
+  "bottom-right": "Bottom-right",
+  center: "Center",
+  custom: "Remember spot",
+};
 let currentView = "bubble"; /* bubble | settings */
 let signedIn = false;
 
@@ -239,6 +257,285 @@ function applyAppearance() {
   if (c) c.classList.toggle("active", appearanceSetting === "clear");
   const slider = $("transparencySlider");
   if (slider) slider.value = String(transparencySetting);
+  /* Background color: tints the fill for the current look — the
+     glass tint for Liquid Glass, the shaded fill for Shaded, a
+     faint tint for Transparent. The text ink is auto-computed from
+     it so a dark background stays readable; an explicit text color
+     (set in applyBubbleOptions) wins over this auto ink. */
+  const bg = bubbleOptions.bgColor;
+  if (bg) {
+    const fill = appearanceSetting === "clear"
+      ? rgba(bg, +(alpha * 0.12).toFixed(2))
+      : rgba(bg, alpha);
+    if (fill) root.style.setProperty("--bubble-fill", fill);
+    const ink = readableInkFor(bg);
+    if (ink) {
+      root.style.setProperty("--bubble-ink-auto", ink.ink);
+      root.style.setProperty("--bubble-ink-soft-auto", ink.soft);
+    }
+  } else {
+    root.style.removeProperty("--bubble-fill");
+    root.style.removeProperty("--bubble-ink-auto");
+    root.style.removeProperty("--bubble-ink-soft-auto");
+  }
+}
+
+/* ---------- bubble options: scale, font, border, shadow, bg,
+   corners, alignment, pulse, text color, per-field styling ---------- */
+
+/* Swatch choices for the border / background / text color pickers.
+   null = Default (the current look). */
+const COLOR_SWATCHES = [
+  { value: null, label: "Default" },
+  { value: "#a44a24", label: "Terracotta" },
+  { value: "#e07a45", label: "Clay" },
+  { value: "#c9962e", label: "Gold" },
+  { value: "#2e6b34", label: "Green" },
+  { value: "#2e7d6b", label: "Teal" },
+  { value: "#4a6fa5", label: "Blue" },
+  { value: "#7a4a6e", label: "Plum" },
+  { value: "#2b2118", label: "Dark" },
+];
+
+async function saveBubbleOptions() {
+  try {
+    const res = await window.sideshow.setBubbleOptions(bubbleOptions);
+    if (res) bubbleOptions = normalizeBubbleOptions(res);
+  } catch (e) { /* stays local */ }
+}
+
+/* Apply every bubble option to the DOM: CSS vars + classes for the
+   tree, and the settings controls' values. Per-field styling is
+   applied when the bubbles render (render reads bubbleOptions). */
+function applyBubbleOptions() {
+  const root = document.documentElement;
+  const tree = $("bubbleTree");
+  const o = bubbleOptions;
+  /* Scale: zoom on the tree (bubbles + text); the header stays put. */
+  if (tree) tree.style.zoom = String(o.scale / 100);
+  /* Font + base weight. */
+  root.style.setProperty("--bubble-font", FONTS[o.font] || FONTS.mono);
+  root.style.setProperty("--bubble-weight", String(WEIGHTS[o.weight] || 400));
+  /* Border color override (null = the current per-look outline). */
+  if (o.borderColor) root.style.setProperty("--bubble-border-user", o.borderColor);
+  else root.style.removeProperty("--bubble-border-user");
+  /* Shadow: a drop-shadow so it follows any corner shape. */
+  root.classList.toggle("shadow-on", !!o.shadowOn);
+  root.style.setProperty("--shadow-blur", Math.round(o.shadowStrength * 0.24) + "px");
+  root.style.setProperty("--shadow-alpha", (o.shadowStrength * 0.0035).toFixed(2));
+  /* Corners: style class + pixel roundness (Smooth only). */
+  root.classList.remove("corners-smooth", "corners-jagged", "corners-right");
+  root.classList.add("corners-" + o.cornerStyle);
+  root.style.setProperty("--corner-radius", o.cornerRadius + "px");
+  /* Branch alignment. */
+  root.classList.remove("align-left", "align-right", "align-middle", "align-center");
+  root.classList.add("align-" + o.align);
+  /* Text color: an explicit choice wins over the background's auto ink. */
+  if (o.textColor) {
+    root.style.setProperty("--bubble-ink-user", o.textColor);
+    root.style.setProperty("--bubble-ink-soft-user", o.textColor);
+  } else {
+    root.style.removeProperty("--bubble-ink-user");
+    root.style.removeProperty("--bubble-ink-soft-user");
+  }
+  /* Gentle pulse: the class is the toggle; the motion classes gate
+     whether it actually animates (Full runs, Reduced subtler, Off none). */
+  if (tree) tree.classList.toggle("pulse", !!o.pulse);
+  /* Background color + auto ink live in applyAppearance (they need
+     the look + the transparency alpha). */
+  applyAppearance();
+  refreshBubbleOptionControls();
+}
+
+/* Per-field styling classes for one field, from the Text tab
+   outline. Bold wins over the global weight for that field; italic
+   and underline are independent. */
+function fieldStyleClasses(key) {
+  const f = (bubbleOptions.fieldStyles && bubbleOptions.fieldStyles[key]) || {};
+  const cls = [];
+  if (f.italic) cls.push("field-italic");
+  if (f.underline) cls.push("field-underline");
+  if (f.bold) cls.push("field-bold");
+  return cls.join(" ");
+}
+function fieldStyleColor(key) {
+  const f = (bubbleOptions.fieldStyles && bubbleOptions.fieldStyles[key]) || {};
+  return f.color || null;
+}
+
+/* ---------- settings tabs ---------- */
+
+const SETTINGS_TABS = ["position", "appearance", "text", "summon", "general"];
+let settingsTab = "position";
+function switchSettingsTab(name) {
+  if (SETTINGS_TABS.indexOf(name) < 0) name = "position";
+  settingsTab = name;
+  document.querySelectorAll(".settings-tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+  SETTINGS_TABS.forEach((t) => {
+    const panel = $("tab-" + t);
+    if (panel) panel.hidden = t !== name;
+  });
+  reportContentHeight();
+}
+
+/* ---------- inflate-open ---------- */
+
+/* When the panel is summoned, the view grows from small to full
+   size once, like a balloon inflating (the Motion classes gate it:
+   Full runs it, Reduced runs a subtler puff, Off shows it
+   instantly). The class is removed when the animation ends, so the
+   gentle pulse takes over from full size. */
+function inflateBubble() {
+  const bv = $("bubbleView");
+  if (!bv) return;
+  bv.classList.remove("inflate");
+  void bv.offsetWidth; /* restart it if it was mid-run */
+  bv.classList.add("inflate");
+}
+
+/* ---------- color swatch rows (border / background / text) ---------- */
+
+function buildColorSwatches(containerId, getValue, onPick) {
+  const wrap = $(containerId);
+  if (!wrap || wrap.childElementCount) return; /* built once */
+  COLOR_SWATCHES.forEach((s) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "swatch" + (s.value === null ? " default" : "");
+    b.setAttribute("aria-label", s.label);
+    b.title = s.label;
+    b.dataset.value = s.value === null ? "" : s.value;
+    if (s.value) b.style.background = s.value;
+    b.addEventListener("click", () => {
+      onPick(s.value);
+      refreshColorSwatches(containerId, getValue());
+    });
+    wrap.appendChild(b);
+  });
+  refreshColorSwatches(containerId, getValue());
+}
+function refreshColorSwatches(containerId, current) {
+  const wrap = $(containerId);
+  if (!wrap) return;
+  wrap.querySelectorAll(".swatch").forEach((el) => {
+    const v = el.dataset.value || null;
+    el.classList.toggle("selected", (v || null) === (current || null));
+  });
+}
+
+/* ---------- per-field styling outline (Text tab) ---------- */
+
+/* One outline line per field: the field name, with its Italic /
+   Underline / Bold toggles + color indented under it. Built once;
+   refreshFieldOutline syncs the control states. */
+function buildFieldOutline() {
+  const wrap = $("fieldOutline");
+  if (!wrap || wrap.childElementCount) return;
+  FIELD_KEYS.forEach((key) => {
+    const row = document.createElement("div");
+    row.className = "field-row";
+    row.dataset.field = key;
+    const name = document.createElement("div");
+    name.className = "field-name";
+    name.textContent = FIELD_LABELS[key] || key;
+    row.appendChild(name);
+    const toggles = document.createElement("div");
+    toggles.className = "field-toggles";
+    [["italic", "I", "Italic", "field-italic-toggle"],
+     ["underline", "U", "Underline", "field-underline-toggle"],
+     ["bold", "B", "Bold", "field-bold-toggle"]].forEach(([prop, label, title, cls]) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "field-toggle " + cls;
+      b.textContent = label;
+      b.title = title;
+      b.dataset.prop = prop;
+      b.addEventListener("click", async () => {
+        const f = bubbleOptions.fieldStyles[key];
+        f[prop] = !f[prop];
+        await saveBubbleOptions();
+        refreshFieldOutline();
+        render(); /* the bubbles carry the styling */
+        flashSaved(b);
+      });
+      toggles.appendChild(b);
+    });
+    const color = document.createElement("input");
+    color.type = "color";
+    color.className = "color-input";
+    color.title = "Text color for " + (FIELD_LABELS[key] || key);
+    color.setAttribute("aria-label", "Text color for " + (FIELD_LABELS[key] || key));
+    color.addEventListener("input", () => {
+      bubbleOptions.fieldStyles[key].color = color.value;
+      render();
+    });
+    color.addEventListener("change", async () => {
+      await saveBubbleOptions();
+      refreshFieldOutline();
+    });
+    toggles.appendChild(color);
+    const clear = document.createElement("button");
+    clear.type = "button";
+    clear.className = "field-clear";
+    clear.textContent = "×";
+    clear.title = "Use the global text color";
+    clear.setAttribute("aria-label", "Use the global text color");
+    clear.addEventListener("click", async () => {
+      bubbleOptions.fieldStyles[key].color = null;
+      await saveBubbleOptions();
+      refreshFieldOutline();
+      render();
+    });
+    toggles.appendChild(clear);
+    row.appendChild(toggles);
+    wrap.appendChild(row);
+  });
+  refreshFieldOutline();
+}
+function refreshFieldOutline() {
+  const wrap = $("fieldOutline");
+  if (!wrap) return;
+  FIELD_KEYS.forEach((key) => {
+    const row = wrap.querySelector('.field-row[data-field="' + key + '"]');
+    if (!row) return;
+    const f = (bubbleOptions.fieldStyles && bubbleOptions.fieldStyles[key]) || {};
+    row.querySelectorAll(".field-toggle").forEach((b) => {
+      b.classList.toggle("active", !!f[b.dataset.prop]);
+    });
+    const color = row.querySelector('input[type="color"]');
+    if (color) color.value = f.color || bubbleOptions.textColor || "#2b2118";
+    const clear = row.querySelector(".field-clear");
+    if (clear) clear.style.display = f.color ? "" : "none";
+  });
+}
+
+/* Sync the Appearance + Text tab controls to the current options
+   (button labels, slider values, swatch selection, outline state).
+   Does not rebuild DOM, so it is safe to call while a slider or
+   color picker is being dragged. */
+function refreshBubbleOptionControls() {
+  const o = bubbleOptions;
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+  const setVal = (id, v) => { const el = $(id); if (el) el.value = String(v); };
+  setText("fontBtn", FONT_LABELS[o.font] || "Mono");
+  setText("weightBtn", WEIGHT_LABELS[o.weight] || "Regular");
+  setText("cornerStyleBtn", CORNER_LABELS[o.cornerStyle] || "Smooth");
+  setText("alignBtn", ALIGN_LABELS[o.align] || "Left");
+  setText("pulseBtn", o.pulse ? "On" : "Off");
+  setText("shadowBtn", o.shadowOn ? "On" : "Off");
+  setVal("scaleSlider", o.scale);
+  setText("scaleValue", o.scale + "%");
+  setVal("shadowStrengthSlider", o.shadowStrength);
+  setText("shadowStrengthValue", String(o.shadowStrength));
+  setVal("cornerRadiusSlider", o.cornerRadius);
+  setText("cornerRadiusValue", o.cornerRadius + "px");
+  refreshColorSwatches("borderSwatches", o.borderColor);
+  refreshColorSwatches("bgSwatches", o.bgColor);
+  refreshColorSwatches("textColorSwatches", o.textColor);
+  setVal("borderColorInput", o.borderColor || "#a44a24");
+  setVal("bgColorInput", o.bgColor || "#a44a24");
+  setVal("textColorInput", o.textColor || "#2b2118");
+  refreshFieldOutline();
 }
 
 /* ---------- state / status ---------- */
@@ -335,6 +632,7 @@ function render() {
     signin.addEventListener("click", () => window.sideshow.signIn());
     tree.appendChild(signin);
     setState("signin");
+    reportContentHeight();
     return;
   }
 
@@ -344,6 +642,7 @@ function render() {
     empty.textContent = "No saved events yet.";
     tree.appendChild(empty);
     setState("empty");
+    reportContentHeight();
     return;
   }
 
@@ -355,11 +654,18 @@ function render() {
 
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "bubble event-bubble";
+    /* Name styling: the title carries the Name field's italic /
+       underline / bold (bold defaults on — the title is already
+       bold). Bold off drops the title to the global weight. */
+    const nameStyle = (bubbleOptions.fieldStyles && bubbleOptions.fieldStyles.n) || { bold: true };
+    btn.className = "bubble event-bubble" + (nameStyle.bold === false ? " name-weight-base" : "");
     btn.setAttribute("aria-expanded", isExpanded ? "true" : "false");
     const sub = eventSubtitle(ev);
+    const nameCls = fieldStyleClasses("n");
+    const nameColor = fieldStyleColor("n");
     btn.innerHTML =
-      '<span class="event-title">' + escapeHtml(eventTitle(ev)) + "</span>" +
+      '<span class="event-title' + (nameCls ? " " + nameCls : "") + '"' +
+      (nameColor ? ' style="color:' + nameColor + '"' : "") + ">" + escapeHtml(eventTitle(ev)) + "</span>" +
       (sub ? '<span class="event-sub">' + escapeHtml(sub) + "</span>" : "") +
       '<span class="expand-mark">' + (isExpanded ? "−" : "+") + "</span>";
     btn.addEventListener("click", () => {
@@ -375,7 +681,10 @@ function render() {
       valueBubblesFor(ev).forEach(({ key, value }) => {
         const vb = document.createElement("button");
         vb.type = "button";
-        vb.className = "bubble value-bubble";
+        const fcls = fieldStyleClasses(key);
+        vb.className = "bubble value-bubble" + (fcls ? " " + fcls : "");
+        const fcolor = fieldStyleColor(key);
+        if (fcolor) vb.style.color = fcolor;
         vb.dataset.key = key;
         vb.innerHTML = COPY_SVG + '<span class="key-badge">' + key.toUpperCase() + '</span><span class="value-text">' + escapeHtml(value) + "</span>" + CONFIRM_SVG;
         vb.addEventListener("click", () => copyValue(value, vb));
@@ -386,6 +695,32 @@ function render() {
 
     tree.appendChild(item);
   });
+  reportContentHeight();
+}
+
+/* ---------- content height: fit the window to the bubble ---------- */
+
+/* The window height follows the bubble content, so the bubble stays
+   next to the cursor instead of the window's empty lower half pushing
+   it far away when it flips above a low cursor. Measures the bottom
+   of the last child of the active scroll container (its rect is in
+   window coordinates, so it is the content height whether the content
+   is shorter or taller than the window), plus the container's bottom
+   padding. Clamped to the window range; the settings view is always
+   full height. Reports to main, which resizes the window. */
+const PANEL_MIN_H = 140;
+const PANEL_MAX_H = 560;
+function measureContentHeight() {
+  const view = currentView === "settings"
+    ? document.querySelector(".settings-body")
+    : $("bubbleTree");
+  if (!view || !view.lastElementChild) return PANEL_MAX_H;
+  const bottom = view.lastElementChild.getBoundingClientRect().bottom;
+  if (!Number.isFinite(bottom) || bottom <= 0) return PANEL_MAX_H;
+  return Math.max(PANEL_MIN_H, Math.min(PANEL_MAX_H, Math.ceil(bottom) + 16));
+}
+function reportContentHeight() {
+  try { window.sideshow.reportContentHeight(measureContentHeight()); } catch (e) { /* main keeps its height */ }
 }
 
 /* ---------- root-bubble drag (the bubble is the drag handle) ---------- */
@@ -414,7 +749,7 @@ document.addEventListener("mouseup", () => {
   const wasDrag = dragState.moved;
   if (dragState.raf) cancelAnimationFrame(dragState.raf);
   dragState = null;
-  window.sideshow.dragEnd();
+  window.sideshow.dragEnd(wasDrag);
   /* Click without a drag toggles the focused event open/closed. */
   if (!wasDrag) {
     if (focusedEvent) { focusedEvent = null; render(); }
@@ -460,6 +795,7 @@ function showSettingsView() {
   if (sv) sv.hidden = false;
   refreshSettingsUI();
   refreshCalendarPicker();
+  reportContentHeight();
   /* Settings is a solid card — clicks on it reach the app. */
   ignoreMouseState = null;
   if (lastMousePos) updateIgnoreMouse(lastMousePos.x, lastMousePos.y);
@@ -470,6 +806,7 @@ function showBubbleView() {
   const bv = $("bubbleView"), sv = $("settingsView");
   if (sv) sv.hidden = true;
   if (bv) bv.hidden = false;
+  reportContentHeight();
   ignoreMouseState = null;
   if (lastMousePos) updateIgnoreMouse(lastMousePos.x, lastMousePos.y);
 }
@@ -724,6 +1061,18 @@ async function refreshSettingsUI() {
     applyAppearance();
   } catch (e) { /* appearance stays Liquid Glass, middle */ }
   try {
+    const p = await window.sideshow.getPosition();
+    if (p && p.mode) positionSetting = p.mode;
+    const btn = $("positionBtn");
+    if (btn) btn.textContent = POSITION_LABELS[positionSetting] || "Follow cursor";
+  } catch (e) { /* position stays Follow cursor */ }
+  try {
+    const b = await window.sideshow.getBubbleOptions();
+    if (b) bubbleOptions = normalizeBubbleOptions(b);
+    applyBubbleOptions();
+    render(); /* per-field styling applies when the bubbles render */
+  } catch (e) { /* bubble options stay at defaults */ }
+  try {
     const c = await window.sideshow.getCalendar();
     if (c) calSetting = { enabled: !!c.enabled, selectedIds: Array.isArray(c.selectedIds) ? c.selectedIds : [] };
     const btn = $("calendarToggleBtn");
@@ -818,6 +1167,18 @@ document.addEventListener("DOMContentLoaded", () => {
   applyAccent();
   buildAccentSwatches();
   applyAppearance();
+  /* Bubble options: swatch rows + the per-field outline are built
+     once from the defaults; refreshSettingsUI loads the saved
+     values and re-applies them. */
+  buildColorSwatches("borderSwatches", () => bubbleOptions.borderColor, async (v) => { bubbleOptions.borderColor = v; await saveBubbleOptions(); applyBubbleOptions(); });
+  buildColorSwatches("bgSwatches", () => bubbleOptions.bgColor, async (v) => { bubbleOptions.bgColor = v; await saveBubbleOptions(); applyBubbleOptions(); });
+  buildColorSwatches("textColorSwatches", () => bubbleOptions.textColor, async (v) => { bubbleOptions.textColor = v; await saveBubbleOptions(); applyBubbleOptions(); });
+  buildFieldOutline();
+  applyBubbleOptions();
+  const bubbleViewEl = $("bubbleView");
+  if (bubbleViewEl) bubbleViewEl.addEventListener("animationend", (e) => {
+    if (e.animationName === "inflate" || e.animationName === "inflate-subtle") bubbleViewEl.classList.remove("inflate");
+  });
   try {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (mq && mq.addEventListener) mq.addEventListener("change", () => { if (!motionSetting) applyMotion(); });
@@ -971,6 +1332,18 @@ document.addEventListener("DOMContentLoaded", () => {
     if (remindersOn) syncEventsToMain();
   });
 
+  /* Position — tap to cycle where the bubble opens. "Remember spot"
+     opens where the bubble was last dragged to (drag it in the bubble
+     view); with no spot saved yet it follows the cursor. */
+  const positionBtn = $("positionBtn");
+  if (positionBtn) positionBtn.addEventListener("click", async () => {
+    const next = POSITION_MODES[(POSITION_MODES.indexOf(positionSetting) + 1) % POSITION_MODES.length];
+    positionSetting = next;
+    try { await window.sideshow.setPosition(next); } catch (e) { /* stays local */ }
+    positionBtn.textContent = POSITION_LABELS[next] || "Follow cursor";
+    flashSaved(positionBtn);
+  });
+
   /* Google Calendar — toggle the "Show Google Calendar events"
      setting; when on, the picker below lists the user's calendars. */
   const calendarToggleBtn = $("calendarToggleBtn");
@@ -1021,6 +1394,115 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  /* Settings tabs — just the tab names; the panel switches. */
+  document.querySelectorAll(".settings-tab").forEach((b) => {
+    b.addEventListener("click", () => switchSettingsTab(b.dataset.tab));
+  });
+
+  /* Bubble scale — a slider, 80–150%, live preview while dragging. */
+  const scaleSlider = $("scaleSlider");
+  if (scaleSlider) {
+    scaleSlider.addEventListener("input", () => {
+      bubbleOptions.scale = Number(scaleSlider.value);
+      applyBubbleOptions();
+    });
+    scaleSlider.addEventListener("change", async () => { await saveBubbleOptions(); });
+  }
+
+  /* Font + weight — tap to cycle. */
+  const fontBtn = $("fontBtn");
+  if (fontBtn) fontBtn.addEventListener("click", async () => {
+    bubbleOptions.font = FONT_CYCLE[(FONT_CYCLE.indexOf(bubbleOptions.font) + 1) % FONT_CYCLE.length];
+    await saveBubbleOptions();
+    applyBubbleOptions();
+    flashSaved(fontBtn);
+  });
+  const weightBtn = $("weightBtn");
+  if (weightBtn) weightBtn.addEventListener("click", async () => {
+    bubbleOptions.weight = WEIGHT_CYCLE[(WEIGHT_CYCLE.indexOf(bubbleOptions.weight) + 1) % WEIGHT_CYCLE.length];
+    await saveBubbleOptions();
+    applyBubbleOptions();
+    flashSaved(weightBtn);
+  });
+
+  /* Border / background / text color — custom color inputs (live
+     preview while picking, saved on change). The swatch rows are
+     built above. */
+  const borderColorInput = $("borderColorInput");
+  if (borderColorInput) {
+    borderColorInput.addEventListener("input", () => {
+      bubbleOptions.borderColor = borderColorInput.value;
+      applyBubbleOptions();
+    });
+    borderColorInput.addEventListener("change", async () => { await saveBubbleOptions(); });
+  }
+  const bgColorInput = $("bgColorInput");
+  if (bgColorInput) {
+    bgColorInput.addEventListener("input", () => {
+      bubbleOptions.bgColor = bgColorInput.value;
+      applyBubbleOptions();
+    });
+    bgColorInput.addEventListener("change", async () => { await saveBubbleOptions(); });
+  }
+  const textColorInput = $("textColorInput");
+  if (textColorInput) {
+    textColorInput.addEventListener("input", () => {
+      bubbleOptions.textColor = textColorInput.value;
+      applyBubbleOptions();
+    });
+    textColorInput.addEventListener("change", async () => { await saveBubbleOptions(); });
+  }
+
+  /* Shadow — toggle + strength slider (live preview). */
+  const shadowBtn = $("shadowBtn");
+  if (shadowBtn) shadowBtn.addEventListener("click", async () => {
+    bubbleOptions.shadowOn = !bubbleOptions.shadowOn;
+    await saveBubbleOptions();
+    applyBubbleOptions();
+    flashSaved(shadowBtn);
+  });
+  const shadowStrengthSlider = $("shadowStrengthSlider");
+  if (shadowStrengthSlider) {
+    shadowStrengthSlider.addEventListener("input", () => {
+      bubbleOptions.shadowStrength = Number(shadowStrengthSlider.value);
+      applyBubbleOptions();
+    });
+    shadowStrengthSlider.addEventListener("change", async () => { await saveBubbleOptions(); });
+  }
+
+  /* Corners — style cycle + pixel roundness slider (Smooth only). */
+  const cornerStyleBtn = $("cornerStyleBtn");
+  if (cornerStyleBtn) cornerStyleBtn.addEventListener("click", async () => {
+    bubbleOptions.cornerStyle = CORNER_CYCLE[(CORNER_CYCLE.indexOf(bubbleOptions.cornerStyle) + 1) % CORNER_CYCLE.length];
+    await saveBubbleOptions();
+    applyBubbleOptions();
+    flashSaved(cornerStyleBtn);
+  });
+  const cornerRadiusSlider = $("cornerRadiusSlider");
+  if (cornerRadiusSlider) {
+    cornerRadiusSlider.addEventListener("input", () => {
+      bubbleOptions.cornerRadius = Number(cornerRadiusSlider.value);
+      applyBubbleOptions();
+    });
+    cornerRadiusSlider.addEventListener("change", async () => { await saveBubbleOptions(); });
+  }
+
+  /* Branch alignment + gentle pulse — tap to cycle / toggle. */
+  const alignBtn = $("alignBtn");
+  if (alignBtn) alignBtn.addEventListener("click", async () => {
+    bubbleOptions.align = ALIGN_CYCLE[(ALIGN_CYCLE.indexOf(bubbleOptions.align) + 1) % ALIGN_CYCLE.length];
+    await saveBubbleOptions();
+    applyBubbleOptions();
+    flashSaved(alignBtn);
+  });
+  const pulseBtn = $("pulseBtn");
+  if (pulseBtn) pulseBtn.addEventListener("click", async () => {
+    bubbleOptions.pulse = !bubbleOptions.pulse;
+    await saveBubbleOptions();
+    applyBubbleOptions();
+    flashSaved(pulseBtn);
+  });
+
   /* Keyboard: hotkey capture first, then Esc / single-key shortcuts. */
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
@@ -1057,12 +1539,17 @@ document.addEventListener("DOMContentLoaded", () => {
   window.sideshow.onPanelShowing((data) => {
     playOpenSound();
     maybeRefreshCalendarEvents();
+    inflateBubble();
     ignoreMouseState = null;
     if (data && typeof data.x === "number" && typeof data.y === "number") {
       updateIgnoreMouse(data.x, data.y);
     }
   });
-  window.sideshow.onPanelHiding(() => playCloseSound());
+  window.sideshow.onPanelHiding(() => {
+    playCloseSound();
+    const bv = $("bubbleView");
+    if (bv) bv.classList.remove("inflate");
+  });
   refreshSettingsUI();
   init();
 });

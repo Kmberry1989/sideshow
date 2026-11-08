@@ -79,23 +79,26 @@ body {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  /* Mono is the current bubble type; the font option swaps it. */
+  font-family: var(--bubble-font, ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace);
 }
 .bubble {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   background: var(--bubble-fill);
-  border: 1.5px solid var(--bubble-border);
-  border-radius: 999px;
-  color: var(--ink);
+  border: 1.5px solid var(--bubble-border-user, var(--bubble-border));
+  border-radius: var(--corner-radius, 32px);
+  /* Text color: an explicit user color wins, then the auto ink the
+     background color computed, then the scheme ink. */
+  color: var(--bubble-ink-user, var(--bubble-ink-auto, var(--ink)));
   font: inherit;
   cursor: pointer;
   text-align: left;
   max-width: 100%;
   transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
-.bubble:hover { border-color: var(--ink-soft); }
+.bubble:hover { border-color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft))); }
 .bubble:active { transform: translateY(1px); }
 .root-bubble {
   padding: 9px 18px;
@@ -118,8 +121,10 @@ body {
   max-width: 100%;
 }
 .event-bubble .event-title { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.event-bubble .event-sub { color: var(--ink-soft); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.event-bubble .expand-mark { font-weight: 700; color: var(--ink-soft); margin-left: 2px; flex: none; }
+/* Name bold off: the title follows the global weight instead. */
+.event-bubble.name-weight-base .event-title { font-weight: var(--bubble-weight, 400); }
+.event-bubble .event-sub { color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft))); font-size: 12px; font-weight: var(--bubble-weight, 400); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.event-bubble .expand-mark { font-weight: 700; color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft))); margin-left: 2px; flex: none; }
 .event-branch.expanded .event-bubble { border-color: var(--accent); }
 .value-branch {
   display: flex;
@@ -133,9 +138,10 @@ body {
 .value-bubble {
   padding: 5px 12px;
   font-size: 13px;
+  font-weight: var(--bubble-weight, 400);
 }
 .value-bubble .value-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.value-bubble .copy-svg { width: 14px; height: 14px; flex: none; color: var(--ink-soft); }
+.value-bubble .copy-svg { width: 14px; height: 14px; flex: none; color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft))); }
 .key-badge {
   display: inline-flex;
   align-items: center;
@@ -148,12 +154,77 @@ body {
   border: 1px solid var(--line);
   font-size: 10px;
   font-weight: 700;
-  color: var(--ink-soft);
+  color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft)));
   flex: none;
 }
 .signin-bubble, .empty-bubble { padding: 7px 14px; font-size: 13.5px; }
 .empty-bubble { cursor: default; }
 .empty-bubble:hover { border-color: var(--bubble-border); }
+
+/* ---------- Per-field text styling ---------- */
+/* Applied by the renderer to a value bubble or the event title,
+   from the Text tab outline. Bold wins over the global weight for
+   that field; italic / underline are independent. */
+.field-italic { font-style: italic; }
+.field-underline { text-decoration: underline; }
+.value-bubble.field-bold { font-weight: 700; }
+.event-bubble .event-title.field-bold { font-weight: 700; }
+
+/* ---------- Corner styles ---------- */
+/* Smooth: the pixel roundness (--corner-radius, default 32px, which
+   renders as the current pill). Right angle: sharp 90°, the amount
+   is ignored. Jagged: a deliberate zigzag at each corner, via
+   clip-path — the border follows the zigzag, and the shadow is a
+   drop-shadow so it follows the clipped shape too. */
+.corners-right .bubble { border-radius: 0; }
+.corners-jagged .bubble {
+  border-radius: 0;
+  clip-path: polygon(6% 0, 94% 0, 97% 2%, 94% 4%, 97% 6%, 100% 8%, 100% 92%, 97% 94%, 94% 96%, 97% 98%, 94% 100%, 6% 100%, 3% 98%, 6% 96%, 3% 94%, 0 92%, 0 8%, 3% 6%, 6% 4%, 3% 2%);
+}
+
+/* ---------- Bubble shadow (user option) ---------- */
+/* A drop-shadow, not a box-shadow, so it follows any corner shape
+   (including the jagged clip-path) and never fights the glass
+   inset highlight. Strength comes from --shadow-blur / --shadow-alpha. */
+.shadow-on .bubble { filter: drop-shadow(0 2px var(--shadow-blur, 10px) rgba(0, 0, 0, var(--shadow-alpha, .14))); }
+
+/* ---------- Branch alignment ---------- */
+/* Left is the current look. Right hugs the right edge (the branch
+   rail flips to the right). Center centers each bubble. Middle
+   centers the branch column as a block while the bubbles stay
+   left-aligned inside it. */
+.align-left .bubble-tree, .align-left .event-branch, .align-left .value-branch { align-items: flex-start; }
+.align-right .bubble-tree, .align-right .event-branch, .align-right .value-branch { align-items: flex-end; }
+.align-right .tree-connector { margin-left: auto; margin-right: 26px; }
+.align-right .value-branch { margin: 8px 18px 2px 0; padding-left: 0; padding-right: 14px; border-left: none; border-right: 2px solid var(--bubble-border); }
+.align-center .bubble-tree, .align-center .event-branch, .align-center .value-branch { align-items: center; }
+.align-center .tree-connector { margin-left: auto; margin-right: auto; }
+.align-center .value-branch { margin: 8px 0 2px; padding-left: 0; border-left: none; }
+.align-middle .bubble-tree { align-items: center; }
+.align-middle .event-branch, .align-middle .value-branch { align-items: flex-start; }
+.align-middle .tree-connector { margin-left: auto; margin-right: auto; }
+.align-middle .value-branch { margin: 8px 0 2px 18px; }
+
+/* ---------- Gentle pulse + inflate-open ---------- */
+/* Pulse: a slow ambient scale on the tree (a cloud breathing),
+   1.0 → 1.02 → 1.0 over 6 s. Reduced: subtler (1.01) and slower
+   (8 s). Off: no pulse. It lives on the tree, so it composes with
+   the copy pop (on the bubble) and the inflate (on the view). */
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
+@keyframes pulse-reduced { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.01); } }
+.motion-full #bubbleTree.pulse { animation: pulse 6s ease-in-out infinite; }
+.motion-reduced #bubbleTree.pulse { animation: pulse-reduced 8s ease-in-out infinite; animation-duration: 8s !important; }
+.motion-off #bubbleTree.pulse { animation: none; }
+/* Inflate: when the panel opens, the view grows from small to full
+   size like a balloon — 0.7 → 1.0 over 250 ms, the app easing.
+   Reduced: a subtler puff (0.92 → 1.0, 120 ms). Off: instant.
+   It runs once on open (the class is removed on animationend);
+   the pulse then takes over from full size. */
+@keyframes inflate { from { transform: scale(.7); opacity: .6; } to { transform: scale(1); opacity: 1; } }
+@keyframes inflate-subtle { from { transform: scale(.92); opacity: .85; } to { transform: scale(1); opacity: 1; } }
+.motion-full #bubbleView.inflate { animation: inflate .25s var(--ease) both; }
+.motion-reduced #bubbleView.inflate { animation: inflate-subtle .12s var(--ease) both; animation-duration: .12s !important; }
+.motion-off #bubbleView.inflate { animation: none; }
 
 /* ---------- Bubble appearance: Glass / Shaded / Transparent ---------- */
 /* The fill alpha comes from --bubble-alpha (the transparency slider).
@@ -260,6 +331,61 @@ body {
   min-height: 0;
 }
 .settings-body .status { margin: 0; }
+/* Settings tabs: just the tab names, no extra chrome. The active
+   tab is the accent color; each tab holds one group of options so
+   the list is never one long screen. */
+.settings-tabs {
+  display: flex;
+  gap: 2px;
+  flex: none;
+  padding: 0 14px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.settings-tab {
+  border: 0; background: none; color: var(--ink-soft);
+  font-size: 12.5px; font-weight: 600; cursor: pointer;
+  padding: 4px 8px; border-radius: 999px;
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.settings-tab:hover { color: var(--ink); }
+.settings-tab.active { color: var(--accent); background: var(--chip); }
+.settings-tab-panel { display: flex; flex-direction: column; gap: 12px; }
+.settings-tab-panel[hidden] { display: none; }
+/* Sliders (scale, shadow strength, roundness) with a value read-out. */
+.setting-slider { flex: 1; accent-color: var(--accent); min-width: 0; }
+.setting-value { font-size: 12.5px; color: var(--ink-soft); min-width: 40px; text-align: right; flex: none; }
+/* A native color input dressed as a round swatch (the custom color
+   choice next to the swatch rows). */
+input[type="color"].color-input {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 1px solid var(--line); padding: 0; background: none;
+  cursor: pointer; flex: none;
+  -webkit-appearance: none; appearance: none;
+}
+input[type="color"].color-input::-webkit-color-swatch-wrapper { padding: 0; }
+input[type="color"].color-input::-webkit-color-swatch { border: none; border-radius: 50%; }
+input[type="color"].color-input::-moz-color-swatch { border: none; border-radius: 50%; }
+/* Per-field styling outline (Text tab): each field is a line, its
+   Italic / Underline / Bold toggles + color sit indented under it. */
+.field-outline { display: flex; flex-direction: column; }
+.field-row { display: flex; flex-direction: column; gap: 4px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.field-row:last-child { border-bottom: none; }
+.field-name { font-size: 13px; font-weight: 600; }
+.field-toggles { display: flex; gap: 6px; align-items: center; padding-left: 14px; }
+.field-toggle {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft);
+  border-radius: 6px; padding: 3px 8px; font-size: 12.5px; cursor: pointer; min-width: 28px;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.field-toggle.active { border-color: var(--accent); color: var(--accent); background: var(--chip); }
+.field-toggle.field-italic-toggle { font-style: italic; }
+.field-toggle.field-underline-toggle { text-decoration: underline; }
+.field-toggle.field-bold-toggle { font-weight: 700; }
+.field-clear {
+  border: 0; background: none; color: var(--ink-soft);
+  font-size: 14px; line-height: 1; cursor: pointer; padding: 2px 4px;
+}
+.field-clear:hover { color: var(--ink); }
 .auth {
   display: flex;
   align-items: center;

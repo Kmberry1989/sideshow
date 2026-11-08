@@ -5,11 +5,13 @@
    Sign-in is Google OAuth in the system browser with a localhost
    redirect (the desktop-app flow). No secrets are printed or logged. */
 
-const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, shell, clipboard, safeStorage, nativeImage, Notification } = require("electron");
+const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, shell, clipboard, safeStorage, nativeImage, Notification, screen } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const http = require("http");
 const crypto = require("crypto");
+const position = require("./position.js");
+const bubbleOptions = require("./bubble-options.js");
 
 const DEFAULT_HOTKEY = "CommandOrControl+Shift+E";
 const OAUTH_PORT = 53682;
@@ -246,31 +248,63 @@ function setPanelOpacity(v) {
   try { if (panel) panel.setOpacity(v); } catch (e) { /* opacity unsupported */ }
 }
 
-/* Position the panel next to the cursor: just below-right by a small
-   offset so it does not cover the pointer. If the cursor is near the
-   right or bottom edge, flip to the left / above instead; clamp to
-   the work area so the whole panel stays on-screen. Still uses the
-   cursor's display, so it appears on the right monitor. */
-const PANEL_W = 400;
-const PANEL_H = 560;
-const CURSOR_GAP = 16;
+/* Where the panel opens: the Position setting (follow cursor, a
+   fixed corner/center of the cursor's display, or a remembered
+   dragged spot). The window height is fitted to the bubble content
+   (the renderer reports it) instead of staying at the 560 max —
+   that is the fix for the panel landing "way up": the old code
+   flipped the whole 560px window above a low cursor, so the bubble
+   (at the window's top) sat ~576px above the pointer. */
+let panelHeight = position.PANEL_MAX_H; /* fitted height, updated by the renderer */
 
-function panelPositionNearCursor(cursor, bounds) {
-  let x = cursor.x + CURSOR_GAP;
-  let y = cursor.y + CURSOR_GAP;
-  if (x + PANEL_W > bounds.x + bounds.width) x = cursor.x - CURSOR_GAP - PANEL_W;
-  if (y + PANEL_H > bounds.y + bounds.height) y = cursor.y - CURSOR_GAP - PANEL_H;
-  x = Math.max(bounds.x, Math.min(x, bounds.x + bounds.width - PANEL_W));
-  y = Math.max(bounds.y, Math.min(y, bounds.y + bounds.height - PANEL_H));
-  return { x: Math.round(x), y: Math.round(y) };
+function positionSetting() {
+  return position.normalizePositionSetting(settings.position);
+}
+
+/* Where the panel opens right now, for the current Position setting
+   and the cursor's display. Fixed spots anchor to the cursor's
+   display work area, so the panel appears on the monitor being used. */
+function computePanelPosition() {
+  const cursor = screen.getCursorScreenPoint();
+  const display = screen.getDisplayNearestPoint(cursor);
+  const p = positionSetting();
+  return {
+    cursor,
+    pos: position.resolvePanelPosition(p.mode, p.custom, cursor, display.workArea, panelHeight),
+  };
+}
+
+function repositionPanel() {
+  if (!panel) return;
+  const { pos } = computePanelPosition();
+  panel.setPosition(pos.x, pos.y);
+}
+
+/* Fit the window height to the bubble content, as reported by the
+   renderer. While the panel is visible the position is only clamped
+   (never re-anchored), so growing/shrinking the tree does not move
+   the panel out from under the pointer. */
+function setPanelHeight(h) {
+  if (!panel) return;
+  const cur = panel.getPosition();
+  const display = screen.getDisplayNearestPoint({ x: cur[0], y: cur[1] });
+  const nh = position.clampHeight(h, display.workArea.height);
+  if (nh === panelHeight) return;
+  panelHeight = nh;
+  /* setContentSize, not setSize: on Linux setSize is a silent no-op
+     for this frameless non-resizable window, while setContentSize
+     resizes it. For a frameless window the two are the same size. */
+  try { panel.setContentSize(position.PANEL_W, panelHeight); } catch (e) { /* resize unsupported */ }
+  if (panel.isVisible()) {
+    const p = panel.getPosition();
+    const c = position.clampPosition(p[0], p[1], display.workArea, position.PANEL_W, panelHeight);
+    if (c.x !== p[0] || c.y !== p[1]) panel.setPosition(c.x, c.y);
+  }
 }
 
 function showPanel() {
   if (!panel) return;
-  const cursor = require("electron").screen.getCursorScreenPoint();
-  const display = require("electron").screen.getDisplayNearestPoint(cursor);
-  const bounds = display.workArea;
-  const pos = panelPositionNearCursor(cursor, bounds);
+  const { cursor, pos } = computePanelPosition();
   panel.setPosition(pos.x, pos.y);
   /* Start click-through: the transparent area around the bubble must
      not swallow desktop clicks. The renderer re-enables mouse input
@@ -751,7 +785,22 @@ ipcMain.handle("sideshow:drag-move", (_e, dx, dy) => {
   }
   return true;
 });
-ipcMain.handle("sideshow:drag-end", () => { dragStartPos = null; return true; });
+ipcMain.handle("sideshow:drag-end", (_e, moved) => {
+  /* "Remember spot": a real drag (not a click) drops the bubble at a
+     spot the panel opens at next time. Only in custom mode, and only
+     when the drag actually moved — a click on the root bubble just
+     toggles the focused event and must not set the spot. */
+  if (moved && panel && positionSetting().mode === "custom") {
+    const pos = panel.getPosition();
+    const display = screen.getDisplayNearestPoint({ x: pos[0], y: pos[1] });
+    const c = position.clampPosition(pos[0], pos[1], display.workArea, position.PANEL_W, panelHeight);
+    const p = positionSetting();
+    p.custom = { x: c.x, y: c.y };
+    settings.position = p;
+    saveSettings();
+  }
+  dragStartPos = null; return true;
+});
 
 ipcMain.handle("sideshow:config-status", () => configStatus());
 
@@ -906,6 +955,42 @@ ipcMain.handle("sideshow:set-transparency", (_e, value) => {
   settings.transparency = v;
   saveSettings();
   return v;
+});
+
+/* Panel position: where the bubble opens. "cursor" follows the
+   pointer (default); the corners/center are fixed spots on the
+   cursor's display; "custom" is a spot the user dragged the bubble
+   to. Changing it while the panel is open moves the panel at once,
+   so the user sees the new spot immediately. The renderer reports
+   the bubble's content height; main fits the window to it (see
+   setPanelHeight) so the bubble stays next to the cursor. */
+ipcMain.handle("sideshow:get-position", () => positionSetting());
+ipcMain.handle("sideshow:set-position", (_e, mode) => {
+  const p = position.normalizePositionSetting({ mode, custom: positionSetting().custom });
+  settings.position = p;
+  saveSettings();
+  if (panel && panel.isVisible()) repositionPanel();
+  return p;
+});
+ipcMain.on("sideshow:content-height", (_e, h) => { setPanelHeight(h); });
+
+/* Bubble options: scale, font + weight, border color, shadow,
+   background color, corner style + roundness, branch alignment,
+   gentle pulse, text color, per-field styling. One object, one
+   get/set pair; the renderer applies it. Defaults are the current
+   look (see bubble-options.js), so the core works with all of them
+   unset. Merging a partial update keeps the rest. */
+function bubbleSetting() {
+  return bubbleOptions.normalizeBubbleOptions(settings.bubble);
+}
+ipcMain.handle("sideshow:get-bubble-options", () => bubbleSetting());
+ipcMain.handle("sideshow:set-bubble-options", (_e, value) => {
+  const merged = bubbleOptions.normalizeBubbleOptions(
+    Object.assign({}, bubbleSetting(), (value && typeof value === "object") ? value : {})
+  );
+  settings.bubble = merged;
+  saveSettings();
+  return merged;
 });
 
 ipcMain.handle("sideshow:get-sound", () => settings.sound !== false);
