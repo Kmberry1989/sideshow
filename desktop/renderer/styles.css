@@ -280,6 +280,24 @@ body {
 .seg { display: inline-flex; gap: 4px; }
 #transparencySlider { flex: 1; accent-color: var(--accent); }
 
+/* Google Calendar picker: one checkbox row per calendar, with its
+   calendar color dot. Hidden until the toggle is on. */
+.calendar-picker { display: flex; flex-direction: column; gap: 6px; margin-top: -6px; }
+.calendar-picker[hidden] { display: none; }
+.calendar-status { margin: 0; font-size: 12.5px; color: var(--ink-soft); }
+.calendar-status:empty { display: none; }
+.calendar-list { display: flex; flex-direction: column; gap: 6px; }
+.calendar-item {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12.5px; color: var(--ink); cursor: pointer;
+}
+.calendar-item input { accent-color: var(--accent); margin: 0; }
+.calendar-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--line); flex: none;
+}
+.calendar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* Accent swatches. */
 .swatches { display: inline-flex; gap: 5px; align-items: center; }
 .swatch {

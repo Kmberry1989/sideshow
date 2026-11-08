@@ -8,6 +8,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
 import { eventTitle, eventSubtitle, fieldValueForKey } from "./fields.js";
+import { calendarEventToRecord, mergeEvents } from "./calendar.js";
 
 const ALLOWLIST = ["kylematthewberry@gmail.com", "rochelleberry731@gmail.com"];
 const COLLECTION = "mainEvent_events";
@@ -18,7 +19,14 @@ const SINGLE_KEYS = ["n", "d", "t", "p", "a", "h", "l"];
 const $ = (id) => document.getElementById(id);
 let auth = null;
 let db = null;
-let events = [];
+let events = []; /* merged view: Main Eventer + Google Calendar */
+let meEvents = []; /* Firestore Main Eventer events, in snapshot order */
+let calEvents = []; /* converted Google Calendar events */
+let calSetting = { enabled: false, selectedIds: [] };
+let calLastFetchAt = 0; /* ms; calendar refetch at most every 5 min */
+let calScopeMissing = false; /* the stored token predates the calendar scope */
+let calPickerLoading = false;
+const CAL_FETCH_STALE_MS = 5 * 60 * 1000;
 let unsubscribe = null;
 let focusedEvent = null; /* the expanded event (accordion) */
 let capturingHotkey = false;
@@ -451,6 +459,7 @@ function showSettingsView() {
   if (bv) bv.hidden = true;
   if (sv) sv.hidden = false;
   refreshSettingsUI();
+  refreshCalendarPicker();
   /* Settings is a solid card — clicks on it reach the app. */
   ignoreMouseState = null;
   if (lastMousePos) updateIgnoreMouse(lastMousePos.x, lastMousePos.y);
@@ -463,6 +472,48 @@ function showBubbleView() {
   if (bv) bv.hidden = false;
   ignoreMouseState = null;
   if (lastMousePos) updateIgnoreMouse(lastMousePos.x, lastMousePos.y);
+}
+
+/* ---------- Google Calendar events (opt-in, never blocks the bubble) ---------- */
+
+/* Rebuild the merged list: Main Eventer events first, then deduped
+   calendar events. Re-renders and re-syncs the badge/reminders. */
+function recomputeEvents() {
+  events = mergeEvents(meEvents, calEvents);
+  if (focusedEvent && !events.some((e) => e._id === focusedEvent._id)) focusedEvent = null;
+  render();
+  syncEventsToMain();
+}
+
+/* Fetch the selected calendars' events (forced when the toggle or
+   selection changes, otherwise only if the last fetch is over 5
+   minutes old). Main Eventer events render immediately; calendar
+   events join when they arrive. A failure leaves only the Main
+   Eventer events — the bubble never waits on the calendar. */
+async function loadCalendarEvents(force) {
+  if (!calSetting.enabled || !calSetting.selectedIds.length) {
+    if (calEvents.length) { calEvents = []; recomputeEvents(); }
+    return;
+  }
+  if (!force && calLastFetchAt && Date.now() - calLastFetchAt < CAL_FETCH_STALE_MS) return;
+  let res;
+  try {
+    res = await window.sideshow.getCalendarEvents(calSetting.selectedIds);
+  } catch (e) {
+    return; /* calendar unavailable; Main Eventer events stand alone */
+  }
+  if (!res || !res.ok) {
+    if (res && res.error === "scope-missing") calScopeMissing = true;
+    return;
+  }
+  calScopeMissing = false;
+  calLastFetchAt = Date.now();
+  calEvents = (res.events || []).map((ev) => calendarEventToRecord(ev, ev.calendarId));
+  recomputeEvents();
+}
+
+function maybeRefreshCalendarEvents() {
+  if (calSetting.enabled && calSetting.selectedIds.length) loadCalendarEvents(false);
 }
 
 /* ---------- send the saved events to main (badge + reminders) ---------- */
@@ -521,10 +572,10 @@ function subscribe() {
   setState("loading");
   const q = query(collection(db, COLLECTION), orderBy("updatedAt", "desc"), limit(50));
   unsubscribe = onSnapshot(q, (snap) => {
-    events = [];
-    snap.forEach((doc) => events.push(Object.assign({ _id: doc.id }, doc.data())));
-    render();
-    syncEventsToMain();
+    meEvents = [];
+    snap.forEach((doc) => meEvents.push(Object.assign({ _id: doc.id }, doc.data())));
+    recomputeEvents();
+    maybeRefreshCalendarEvents();
   }, () => {
     setState("error");
     setStatus("Could not load events.");
@@ -588,7 +639,9 @@ async function init() {
       subscribe();
     } else {
       if (unsubscribe) { unsubscribe(); unsubscribe = null; }
-      events = [];
+      meEvents = [];
+      calEvents = [];
+      calLastFetchAt = 0;
       focusedEvent = null;
       setState("signin");
       render();
@@ -604,6 +657,12 @@ async function init() {
     const idToken = await window.sideshow.refreshToken();
     if (idToken) signInWithIdToken(idToken);
   } catch (e) { /* stays signed out */ }
+  /* Calendar setting (off by default) — loaded once so the bubble
+     can refresh calendar events when the panel is shown. */
+  try {
+    const c = await window.sideshow.getCalendar();
+    if (c) calSetting = { enabled: !!c.enabled, selectedIds: Array.isArray(c.selectedIds) ? c.selectedIds : [] };
+  } catch (e) { /* calendar stays off */ }
 }
 
 /* ---------- settings view ---------- */
@@ -664,6 +723,88 @@ async function refreshSettingsUI() {
     if (typeof t === "number") transparencySetting = t;
     applyAppearance();
   } catch (e) { /* appearance stays Liquid Glass, middle */ }
+  try {
+    const c = await window.sideshow.getCalendar();
+    if (c) calSetting = { enabled: !!c.enabled, selectedIds: Array.isArray(c.selectedIds) ? c.selectedIds : [] };
+    const btn = $("calendarToggleBtn");
+    if (btn) btn.textContent = calSetting.enabled ? "On" : "Off";
+    const picker = $("calendarPicker");
+    if (picker) picker.hidden = !calSetting.enabled;
+  } catch (e) { /* calendar toggle stays as-is */ }
+}
+
+/* Google Calendar picker: the user's calendars with a checkbox each.
+   Populated only while the settings view is open. The loading state
+   lives here in the settings row — the bubble never waits on it. If
+   the stored sign-in predates the calendar scope, the row says to
+   sign in again instead of listing calendars. */
+async function refreshCalendarPicker() {
+  const list = $("calendarList");
+  const status = $("calendarPickerStatus");
+  const picker = $("calendarPicker");
+  if (!list || !status || !picker) return;
+  if (!calSetting.enabled) { picker.hidden = true; return; }
+  picker.hidden = false;
+  if (calScopeMissing) {
+    list.innerHTML = "";
+    status.textContent = "Sign in again to allow Calendar access.";
+    return;
+  }
+  calPickerLoading = true;
+  status.textContent = "Loading calendars…";
+  list.innerHTML = "";
+  let res;
+  try {
+    res = await window.sideshow.listCalendars();
+  } catch (e) {
+    res = null;
+  }
+  calPickerLoading = false;
+  if (!res || !res.ok) {
+    if (res && res.error === "scope-missing") {
+      calScopeMissing = true;
+      status.textContent = "Sign in again to allow Calendar access.";
+    } else if (res && res.error === "not-signed-in") {
+      status.textContent = "Sign in to see your calendars.";
+    } else {
+      status.textContent = "Could not load calendars.";
+    }
+    return;
+  }
+  calScopeMissing = false;
+  const calendars = res.calendars || [];
+  if (!calendars.length) {
+    status.textContent = "No calendars found.";
+    return;
+  }
+  status.textContent = "";
+  calendars.forEach((cal) => {
+    const label = document.createElement("label");
+    label.className = "calendar-item";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = calSetting.selectedIds.indexOf(cal.id) >= 0;
+    box.addEventListener("change", async () => {
+      if (box.checked) {
+        if (calSetting.selectedIds.indexOf(cal.id) < 0) calSetting.selectedIds.push(cal.id);
+      } else {
+        calSetting.selectedIds = calSetting.selectedIds.filter((id) => id !== cal.id);
+      }
+      try { await window.sideshow.setCalendar(calSetting); } catch (e) { /* stays local */ }
+      calLastFetchAt = 0;
+      loadCalendarEvents(true);
+    });
+    const dot = document.createElement("span");
+    dot.className = "calendar-dot";
+    if (cal.backgroundColor) dot.style.background = cal.backgroundColor;
+    const name = document.createElement("span");
+    name.className = "calendar-name";
+    name.textContent = cal.summary + (cal.primary ? " (primary)" : "");
+    label.appendChild(box);
+    label.appendChild(dot);
+    label.appendChild(name);
+    list.appendChild(label);
+  });
 }
 
 /* ---------- wiring ---------- */
@@ -830,6 +971,26 @@ document.addEventListener("DOMContentLoaded", () => {
     if (remindersOn) syncEventsToMain();
   });
 
+  /* Google Calendar — toggle the "Show Google Calendar events"
+     setting; when on, the picker below lists the user's calendars. */
+  const calendarToggleBtn = $("calendarToggleBtn");
+  if (calendarToggleBtn) calendarToggleBtn.addEventListener("click", async () => {
+    calSetting.enabled = !calSetting.enabled;
+    calendarToggleBtn.textContent = calSetting.enabled ? "On" : "Off";
+    try { await window.sideshow.setCalendar(calSetting); } catch (e) { /* stays local */ }
+    const picker = $("calendarPicker");
+    if (picker) picker.hidden = !calSetting.enabled;
+    if (calSetting.enabled) {
+      refreshCalendarPicker();
+      calLastFetchAt = 0;
+      loadCalendarEvents(true);
+    } else {
+      calEvents = [];
+      recomputeEvents();
+    }
+    flashSaved(calendarToggleBtn);
+  });
+
   /* Appearance: Liquid Glass / Shaded / Transparent. */
   const appearanceGlassBtn = $("appearanceGlassBtn");
   if (appearanceGlassBtn) appearanceGlassBtn.addEventListener("click", async () => {
@@ -895,6 +1056,7 @@ document.addEventListener("DOMContentLoaded", () => {
      from the cursor position main sends with the showing event. */
   window.sideshow.onPanelShowing((data) => {
     playOpenSound();
+    maybeRefreshCalendarEvents();
     ignoreMouseState = null;
     if (data && typeof data.x === "number" && typeof data.y === "number") {
       updateIgnoreMouse(data.x, data.y);
