@@ -61,5 +61,5 @@
     "start": "npm run build && electron .",
     "test": "node --test test/fields.test.js test/summon.test.js test/calendar.test.js"
   },
-  "version": "0.1.2"
+  "version": "0.1.3"
 }

@@ -12,7 +12,7 @@
 !include "FileFunc.nsh"
 
 Name "Sideshow"
-OutFile "dist/Sideshow Setup 0.1.2.exe"
+OutFile "dist/Sideshow Setup 0.1.3.exe"
 InstallDir "$LOCALAPPDATA\Programs\Sideshow"
 InstallDirRegKey HKCU "Software\Sideshow" "InstallDir"
 RequestExecutionLevel user
@@ -39,7 +39,7 @@ Section "Install"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Sideshow" "DisplayName" "Sideshow"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Sideshow" "UninstallString" "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Sideshow" "DisplayIcon" "$INSTDIR\Sideshow.exe"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Sideshow" "DisplayVersion" "0.1.2"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Sideshow" "DisplayVersion" "0.1.3"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   CreateDirectory "$SMPROGRAMS\Sideshow"
   CreateShortcut "$SMPROGRAMS\Sideshow\Sideshow.lnk" "$INSTDIR\Sideshow.exe" "" "$INSTDIR\Sideshow.exe" 0
