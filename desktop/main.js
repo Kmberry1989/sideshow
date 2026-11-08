@@ -500,14 +500,17 @@ function startSignIn() {
       const code = url.searchParams.get("code");
       const state = url.searchParams.get("state");
       const error = url.searchParams.get("error");
+      // Capture the PKCE verifier + state BEFORE stopOAuthServer() clears them.
+      const savedState = oauthState;
+      const savedVerifier = oauthVerifier;
       res.writeHead(200, { "Content-Type": "text/html" });
       res.end("<html><body style=\"font-family:sans-serif;padding:40px\"><h2>Signed in</h2><p>Return to Sideshow.</p></body></html>");
       stopOAuthServer();
-      if (error || !code || state !== oauthState) {
+      if (error || !code || state !== savedState) {
         if (panel) panel.webContents.send("sideshow:auth-error");
         return;
       }
-      exchangeCode(code);
+      exchangeCode(code, savedVerifier);
     } catch (e) {
       stopOAuthServer();
       if (panel) panel.webContents.send("sideshow:auth-error");
@@ -538,12 +541,12 @@ async function postToken(body) {
   return res.json();
 }
 
-async function exchangeCode(code) {
+async function exchangeCode(code, verifier) {
   const data = await postToken({
     client_id: config.googleOAuth.clientId,
     client_secret: config.googleOAuth.clientSecret,
     code,
-    code_verifier: oauthVerifier,
+    code_verifier: verifier,
     redirect_uri: "http://127.0.0.1:" + OAUTH_PORT + "/callback",
     grant_type: "authorization_code",
   });
