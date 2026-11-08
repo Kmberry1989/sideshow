@@ -42,7 +42,7 @@
     "firebase": "^10.12.2",
     "uiohook-napi": "^1.5.5"
   },
-  "description": "Sideshow — floating toggle overlay that recalls saved Main Eventer details anywhere on the system",
+  "description": "Sideshow \u2014 floating toggle overlay that recalls saved Main Eventer details anywhere on the system",
   "devDependencies": {
     "@electron/packager": "^18.3.0",
     "electron": "^35.0.0",
@@ -61,5 +61,5 @@
     "start": "npm run build && electron .",
     "test": "node --test test/fields.test.js test/summon.test.js test/calendar.test.js test/position.test.js test/bubble-options.test.js"
   },
-  "version": "0.1.5"
+  "version": "0.1.6"
 }

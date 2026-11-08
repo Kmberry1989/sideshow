@@ -176,6 +176,28 @@ function readRefreshToken() {
 
 function clearRefreshToken() {
   try { fs.unlinkSync(tokenPath()); } catch (e) { /* already gone */ }
+  cachedAccessToken = null;
+}
+
+/* Revoke the stored Google refresh token at Google, then clear it
+   locally. Best-effort: never throws, never blocks sign-in.
+   Called before a fresh sign-in so Google issues a new refresh
+   token carrying the current scopes (including calendar.readonly);
+   without this, Google may reuse the old token, which was granted
+   before the calendar scope existed, and Calendar calls fail with
+   scope-missing. Also used on sign-out so the token is invalidated
+   server-side, not just deleted locally. */
+async function revokeRefreshToken() {
+  const token = readRefreshToken();
+  clearRefreshToken();
+  if (!token) return;
+  try {
+    await fetch("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token }).toString(),
+    });
+  } catch (e) { /* revoke is best-effort; sign-in proceeds anyway */ }
 }
 
 /* Frameless + transparent window: no window chrome, no rectangular
@@ -183,7 +205,8 @@ function clearRefreshToken() {
    desktop, with the desktop showing through behind and around it.
    The renderer makes transparent areas click-through (via
    sideshow:ignore-mouse) so clicks outside the bubble reach the
-   desktop and the click-away-to-hide behaviour still works. The
+   desktop. The bubble stays open until dismissed (x button or
+   re-summon); it no longer hides on click-away (v0.1.6). The
    bubble itself is the hit area and the drag handle (the root
    bubble, via sideshow:drag-start / sideshow:drag-move). */
 function createPanel() {
@@ -208,7 +231,9 @@ function createPanel() {
     },
   });
   panel.loadFile(path.join(__dirname, "renderer", "index.html"));
-  panel.on("blur", () => { if (panel && panel.isVisible()) hidePanel(); });
+  /* No blur-hide: the bubble stays open until dismissed (x button,
+     re-summon, or quit). Auto-hide on click-away was removed in v0.1.6
+     at the user's request. */
   panel.on("closed", () => { panel = null; });
 }
 
@@ -579,13 +604,16 @@ function base64url(buf) {
   return Buffer.from(buf).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function startSignIn() {
+async function startSignIn() {
   const st = configStatus();
   if (!st.hasConfig || !st.hasOAuth) {
     if (panel) panel.webContents.send("sideshow:config-missing", st);
     return;
   }
   if (oauthServer) return;
+  /* Revoke any stored refresh token first, so the new authorization
+     issues a fresh one with the current scopes (calendar.readonly). */
+  await revokeRefreshToken();
   oauthState = base64url(crypto.randomBytes(16));
   oauthVerifier = base64url(crypto.randomBytes(32));
   const challenge = base64url(crypto.createHash("sha256").update(oauthVerifier).digest());
@@ -815,7 +843,7 @@ ipcMain.handle("sideshow:firebase-config", () => {
 
 ipcMain.handle("sideshow:sign-in", () => { startSignIn(); return true; });
 
-ipcMain.handle("sideshow:sign-out", () => { clearRefreshToken(); return true; });
+ipcMain.handle("sideshow:sign-out", () => { revokeRefreshToken(); return true; });
 
 ipcMain.handle("sideshow:refresh-token", async () => refreshIdToken());
 
