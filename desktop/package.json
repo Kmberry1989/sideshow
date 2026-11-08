@@ -1,1 +1,65 @@
-{"dependencies":{"firebase":"^10.12.2"},"description":"Sideshow — floating toggle overlay that recalls saved Main Eventer details anywhere on the system","devDependencies":{"@electron/packager":"^18.3.0","electron":"^35.0.0","esbuild":"^0.24.0"},"license":"MIT","main":"main.js","name":"sideshow-desktop","scripts":{"build":"esbuild renderer/renderer.js --bundle --outfile=renderer/bundle.js --format=iife --platform=browser","pack":"npm run build && electron-packager . Sideshow --platform=win32,darwin --arch=x64 --out=dist --overwrite --icon=assets/icon","start":"npm run build && electron .","test":"node --test test/fields.test.js"},"version":"0.1.0"}
+{
+  "build": {
+    "appId": "com.firedarts.sideshow",
+    "directories": {
+      "output": "dist"
+    },
+    "dmg": {
+      "window": {
+        "height": 380,
+        "width": 540
+      }
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "firebase-config.json",
+      "assets/**/*",
+      "renderer/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "icon": "assets/icon.icns",
+      "target": "dmg"
+    },
+    "npmRebuild": false,
+    "nsis": {
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "differentialPackage": false,
+      "oneClick": false,
+      "shortcutName": "Sideshow"
+    },
+    "productName": "Sideshow",
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": "nsis"
+    }
+  },
+  "dependencies": {
+    "firebase": "^10.12.2",
+    "uiohook-napi": "^1.5.5"
+  },
+  "description": "Sideshow — floating toggle overlay that recalls saved Main Eventer details anywhere on the system",
+  "devDependencies": {
+    "@electron/packager": "^18.3.0",
+    "electron": "^35.0.0",
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.24.0"
+  },
+  "license": "MIT",
+  "main": "main.js",
+  "name": "sideshow-desktop",
+  "scripts": {
+    "build": "esbuild renderer/renderer.js --bundle --outfile=renderer/bundle.js --format=iife --platform=browser",
+    "dist:mac": "npm run build && electron-builder --mac dmg",
+    "dist:win": "npm run build && electron-builder --win nsis",
+    "dist:win-native": "npm run build && electron-builder --win --dir && makensis installer.nsi",
+    "pack": "npm run build && electron-packager . Sideshow --platform=win32,darwin --arch=x64 --out=dist --overwrite --icon=assets/icon",
+    "start": "npm run build && electron .",
+    "test": "node --test test/fields.test.js"
+  },
+  "version": "0.1.0"
+}
