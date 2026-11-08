@@ -1,0 +1,6 @@
+desktop/node_modules/
+desktop/dist/
+desktop/firebase-config.json
+desktop/renderer/bundle.js
+ios/Sideshow/GoogleService-Info.plist
+.DS_Store

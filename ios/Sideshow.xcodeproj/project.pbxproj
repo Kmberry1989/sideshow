@@ -1,0 +1,609 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+		13BB6CFC42EAD92937867C4E = {
+			isa = PBXBuildFile;
+			fileRef = 145659526204EB5CF6F7BD8D;
+		};
+		34E9145C2AF96222EDB5B34C = {
+			isa = PBXBuildFile;
+			fileRef = A4E32E6F276B17A8CA18150C;
+		};
+		42A757DBC89FD51B445181EC = {
+			isa = PBXBuildFile;
+			fileRef = 6136CA8A148DFD4F2629413E;
+		};
+		4BCD5B70608963F48D79CE9D = {
+			isa = PBXBuildFile;
+			fileRef = EB7F51348FDC8A8133243615;
+		};
+		5050DC5A9D8E881671F78CFB = {
+			isa = PBXBuildFile;
+			fileRef = 7C6F92FE5F1D9D103C97EA9E;
+		};
+		8C25C9479923B53D14C1BDE0 = {
+			isa = PBXBuildFile;
+			fileRef = EB7F51348FDC8A8133243615;
+		};
+		AEA4F2FD4EBEF36E7F43DA2B = {
+			isa = PBXBuildFile;
+			fileRef = F62233C6C3D05D9C6E999B30;
+		};
+		D0C70708F90C3FB6155635CC = {
+			isa = PBXBuildFile;
+			fileRef = AEA8979D6183B4E89A7647BA;
+		};
+		E2548C4EBC9248608CBA7C6D = {
+			isa = PBXBuildFile;
+			fileRef = 13ABAD35F9022C68C5870FC6;
+			settings = {
+				ATTRIBUTES = (
+					CodeSignOnCopy,
+					RemoveHeadersOnCopy,
+				);
+			};
+		};
+		EE127A5CA137FAE7D68C6F18 = {
+			isa = PBXBuildFile;
+			fileRef = A4E32E6F276B17A8CA18150C;
+		};
+		F50076C1AE47D17E802E9FE8 = {
+			isa = PBXBuildFile;
+			fileRef = 3354754E23A53221790E2F2D;
+		};
+		F7075B01E662CC0595AC9BED = {
+			isa = PBXBuildFile;
+			fileRef = 31622F5DB5AF44890238D799;
+		};
+		342C7E48F04EE1D250E3E5C2 = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 46F86FAA6BBF9AC94A7E4595;
+			proxyType = 1;
+			remoteGlobalIDString = 169BBECA3627EA134773D21F;
+			remoteInfo = SideshowKeyboard;
+		};
+		96F5BF851EC8E6033CCEBDEB = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				E2548C4EBC9248608CBA7C6D,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		13ABAD35F9022C68C5870FC6 = {
+			isa = PBXFileReference;
+			explicitFileType = wrapper.app-extension;
+			includeInIndex = 0;
+			name = SideshowKeyboard.appex;
+			path = SideshowKeyboard.appex;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		145659526204EB5CF6F7BD8D = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			name = SideshowApp.swift;
+			path = Sideshow/SideshowApp.swift;
+			sourceTree = "<group>";
+		};
+		1EB24A17CD6C023E6F80F35F = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.xml;
+			name = Info.plist;
+			path = Sideshow/Info.plist;
+			sourceTree = "<group>";
+		};
+		31622F5DB5AF44890238D799 = {
+			isa = PBXFileReference;
+			lastKnownFileType = folder.assetcatalog;
+			name = Assets.xcassets;
+			path = Sideshow/Assets.xcassets;
+			sourceTree = "<group>";
+		};
+		31DEE5150D87267935A7C23F = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.entitlements;
+			name = Sideshow.entitlements;
+			path = Sideshow/Sideshow.entitlements;
+			sourceTree = "<group>";
+		};
+		3354754E23A53221790E2F2D = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			name = KeyboardViewController.swift;
+			path = SideshowKeyboard/KeyboardViewController.swift;
+			sourceTree = "<group>";
+		};
+		7BB71A3A8D1962A849D3CB6A = {
+			isa = PBXFileReference;
+			explicitFileType = wrapper.application;
+			includeInIndex = 0;
+			name = Sideshow.app;
+			path = Sideshow.app;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		8516A92649FA331FD5A15792 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.xml;
+			name = Info.plist;
+			path = SideshowKeyboard/Info.plist;
+			sourceTree = "<group>";
+		};
+		A4E32E6F276B17A8CA18150C = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			name = EventStore.swift;
+			path = Shared/EventStore.swift;
+			sourceTree = "<group>";
+		};
+		AEA8979D6183B4E89A7647BA = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			name = ContentView.swift;
+			path = Sideshow/ContentView.swift;
+			sourceTree = "<group>";
+		};
+		D549747F9359685DA7332314 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.entitlements;
+			name = SideshowKeyboard.entitlements;
+			path = SideshowKeyboard/SideshowKeyboard.entitlements;
+			sourceTree = "<group>";
+		};
+		EB7F51348FDC8A8133243615 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			name = SideshowConfig.swift;
+			path = Shared/SideshowConfig.swift;
+			sourceTree = "<group>";
+		};
+		44086AC38F580DDA340DB7B6 = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AEA4F2FD4EBEF36E7F43DA2B,
+				5050DC5A9D8E881671F78CFB,
+				42A757DBC89FD51B445181EC,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EF5FC2376EED701AC3E0A23F = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = ( );
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		518DA81DB9B99529C0C0AEBE = {
+			isa = PBXGroup;
+			children = (
+				DD9F9500064B97919E7780E3,
+				61C15CFCD0BCBB9F78A09298,
+				9CB302E9C7F6377B351DBEAB,
+				547D009064F7C3F13BEF3460,
+			);
+			sourceTree = "<group>";
+		};
+		547D009064F7C3F13BEF3460 = {
+			isa = PBXGroup;
+			children = (
+				7BB71A3A8D1962A849D3CB6A,
+				13ABAD35F9022C68C5870FC6,
+			);
+			sourceTree = "<group>";
+			name = Products;
+		};
+		61C15CFCD0BCBB9F78A09298 = {
+			isa = PBXGroup;
+			children = (
+				3354754E23A53221790E2F2D,
+				8516A92649FA331FD5A15792,
+				D549747F9359685DA7332314,
+			);
+			sourceTree = "<group>";
+			name = SideshowKeyboard;
+			path = SideshowKeyboard;
+		};
+		9CB302E9C7F6377B351DBEAB = {
+			isa = PBXGroup;
+			children = (
+				A4E32E6F276B17A8CA18150C,
+				EB7F51348FDC8A8133243615,
+			);
+			sourceTree = "<group>";
+			name = Shared;
+			path = Shared;
+		};
+		DD9F9500064B97919E7780E3 = {
+			isa = PBXGroup;
+			children = (
+				145659526204EB5CF6F7BD8D,
+				AEA8979D6183B4E89A7647BA,
+				1EB24A17CD6C023E6F80F35F,
+				31DEE5150D87267935A7C23F,
+				31622F5DB5AF44890238D799,
+			);
+			sourceTree = "<group>";
+			name = Sideshow;
+			path = Sideshow;
+		};
+		169BBECA3627EA134773D21F = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8F530D6F03211125F10EFD31;
+			buildPhases = (
+				F5A76B6931EDDFAAD906D0E4,
+				EF5FC2376EED701AC3E0A23F,
+				AE2E8B61BEE995D1E553733D,
+			);
+			buildRules = ( );
+			dependencies = ( );
+			name = SideshowKeyboard;
+			productName = SideshowKeyboard;
+			productReference = 13ABAD35F9022C68C5870FC6;
+			productType = com.apple.product-type.app-extension;
+		};
+		E3435DDA2687639586BF0B70 = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 18AB8C5ECF2C255B7DA28A83;
+			buildPhases = (
+				C4BB4888821B00A15964B0CF,
+				44086AC38F580DDA340DB7B6,
+				F6AD09023A80268DFA48D911,
+				96F5BF851EC8E6033CCEBDEB,
+			);
+			buildRules = ( );
+			dependencies = (
+				EBB7F4E676D9540F794627D4,
+			);
+			name = Sideshow;
+			productName = Sideshow;
+			productReference = 7BB71A3A8D1962A849D3CB6A;
+			productType = com.apple.product-type.application;
+		};
+		46F86FAA6BBF9AC94A7E4595 = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					E3435DDA2687639586BF0B70 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					169BBECA3627EA134773D21F = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = 3523DAFB1176F3C27A036B12;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 518DA81DB9B99529C0C0AEBE;
+			packageReferences = (
+				739FAFB595ECF42F2AD46A64,
+				4186BE6989CB27DEEB168B5C,
+			);
+			productRefGroup = 547D009064F7C3F13BEF3460;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E3435DDA2687639586BF0B70,
+				169BBECA3627EA134773D21F,
+			);
+		};
+		AE2E8B61BEE995D1E553733D = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ( );
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F6AD09023A80268DFA48D911 = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F7075B01E662CC0595AC9BED,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C4BB4888821B00A15964B0CF = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				13BB6CFC42EAD92937867C4E,
+				D0C70708F90C3FB6155635CC,
+				34E9145C2AF96222EDB5B34C,
+				4BCD5B70608963F48D79CE9D,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5A76B6931EDDFAAD906D0E4 = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F50076C1AE47D17E802E9FE8,
+				EE127A5CA137FAE7D68C6F18,
+				8C25C9479923B53D14C1BDE0,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EBB7F4E676D9540F794627D4 = {
+			isa = PBXTargetDependency;
+			target = 169BBECA3627EA134773D21F;
+			targetProxy = 342C7E48F04EE1D250E3E5C2;
+		};
+		04AC3FF3A6A604B346DCC6B0 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Sideshow/Sideshow.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = Sideshow/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.firedarts.sideshow;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+			};
+			name = Debug;
+		};
+		7007723555AC6CCFF39901D3 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = SideshowKeyboard/SideshowKeyboard.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = SideshowKeyboard/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.firedarts.sideshow.keyboard;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+		741572B7E220093E0AE598EF = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = SideshowKeyboard/SideshowKeyboard.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = SideshowKeyboard/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.firedarts.sideshow.keyboard;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		93B4C196BEA1402466E47CE6 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Sideshow/Sideshow.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = Sideshow/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.firedarts.sideshow;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+			};
+			name = Release;
+		};
+		B64640B7E3FEFBBBDC9D67AB = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFS = "";
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = -Onone;
+			};
+			name = Debug;
+		};
+		C79BE7780C3053CD0303095B = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf-with-dsym;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFS = "";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_OPTIMIZATION_LEVEL = -O;
+				ENABLE_NS_ASSERTIONS = NO;
+				VALIDATE_PRODUCT = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+				);
+			};
+			name = Release;
+		};
+		18AB8C5ECF2C255B7DA28A83 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				04AC3FF3A6A604B346DCC6B0,
+				93B4C196BEA1402466E47CE6,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3523DAFB1176F3C27A036B12 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B64640B7E3FEFBBBDC9D67AB,
+				C79BE7780C3053CD0303095B,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		8F530D6F03211125F10EFD31 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				741572B7E220093E0AE598EF,
+				7007723555AC6CCFF39901D3,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4186BE6989CB27DEEB168B5C = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.0.0;
+			};
+		};
+		739FAFB595ECF42F2AD46A64 = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.0.0;
+			};
+		};
+		6136CA8A148DFD4F2629413E = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4186BE6989CB27DEEB168B5C;
+			productName = GoogleSignIn;
+		};
+		7C6F92FE5F1D9D103C97EA9E = {
+			isa = XCSwiftPackageProductDependency;
+			package = 739FAFB595ECF42F2AD46A64;
+			productName = FirebaseFirestore;
+		};
+		F62233C6C3D05D9C6E999B30 = {
+			isa = XCSwiftPackageProductDependency;
+			package = 739FAFB595ECF42F2AD46A64;
+			productName = FirebaseAuth;
+		};
+	};
+	rootObject = 46F86FAA6BBF9AC94A7E4595;
+}

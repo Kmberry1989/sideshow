@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sideshow</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Sideshow</h1>
+      <button id="closeBtn" type="button" aria-label="Close">×</button>
+    </header>
+    <div class="auth">
+      <span id="authLabel"></span>
+      <button id="signInBtn" type="button" class="btn">Sign in with Google</button>
+      <button id="signOutBtn" type="button" class="btn plain" style="display:none">Sign out</button>
+    </div>
+    <input id="search" type="search" placeholder="Search" autocomplete="off" />
+    <p id="status" class="status"></p>
+    <main id="eventList"></main>
+    <div id="state-loading" class="state">Loading…</div>
+    <div id="state-config" class="state">
+      <p>Add firebase-config.json</p>
+      <button id="openConfigBtn" type="button" class="btn">Open folder</button>
+    </div>
+    <div id="state-signin" class="state">Sign in to see saved events.</div>
+    <div id="state-empty" class="state">No saved events yet.</div>
+    <div id="state-error" class="state">Could not load events.</div>
+    <script src="bundle.js"></script>
+  </body>
+</html>
