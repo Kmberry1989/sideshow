@@ -32,11 +32,14 @@ test("monthGrid is 6 weeks of 7 cells starting Sunday", () => {
   assert.equal(dec[0][0].inMonth, false);
   assert.equal(dec[0][2].date, "2026-12-01");
   assert.equal(dec[0][2].inMonth, true);
-  /* Every cell's date is a valid YYYY-MM-DD and days are sequential. */
+  /* Every cell's date is a valid YYYY-MM-DD and days are sequential.
+     Compare at UTC midnight: Nov 1, 2026 is a 25-hour day in US
+     timezones (DST ends that Sunday), so local-midnight math reads
+     90000000ms across the boundary instead of 86400000ms. */
   const flat = nov.flat();
   for (let i = 1; i < flat.length; i++) {
-    const prev = new Date(flat[i - 1].date + "T00:00:00");
-    const cur = new Date(flat[i].date + "T00:00:00");
+    const prev = new Date(flat[i - 1].date + "T00:00:00Z");
+    const cur = new Date(flat[i].date + "T00:00:00Z");
     assert.equal(cur.getTime() - prev.getTime(), 24 * 60 * 60 * 1000);
   }
 });
