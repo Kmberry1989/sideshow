@@ -371,6 +371,17 @@ body {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
   font-family: "Public Sans", system-ui, -apple-system, sans-serif;
 }
+/* Settings window (settings.html): a normal opaque window, so the
+   settings form fills it instead of floating as a card on the
+   desktop. */
+body.settings-window { background: var(--bg); }
+body.settings-window .settings-view {
+  position: static;
+  inset: auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
 .settings-header {
   display: flex;
   align-items: center;

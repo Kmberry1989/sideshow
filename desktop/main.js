@@ -20,6 +20,8 @@ const SETTINGS_FILE = "sideshow-settings.json";
 
 let tray = null;
 let panel = null;
+let settingsWindow = null;
+let panelVisibleBeforeSettings = false; /* restore the bubble's visibility when settings closes */
 let config = null;
 let oauthServer = null;
 let oauthState = null;
@@ -235,6 +237,82 @@ function createPanel() {
      re-summon, or quit). Auto-hide on click-away was removed in v0.1.6
      at the user's request. */
   panel.on("closed", () => { panel = null; });
+}
+
+/* ---------- settings window ---------- */
+
+/* Settings lives in its own window: a normal framed, opaque,
+   resizable window — not the frameless transparent bubble. The
+   bubble stays open beside it as a live preview of appearance
+   changes. Single instance: opening it again just focuses it.
+   Centered on the display with the cursor. */
+function openSettingsWindow() {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.focus();
+    return;
+  }
+  /* Remember whether the bubble was showing, and show it as the
+     preview if it was hidden. */
+  panelVisibleBeforeSettings = !!(panel && panel.isVisible());
+  if (panel && !panel.isVisible()) showPanel();
+  const cursor = screen.getCursorScreenPoint();
+  const display = screen.getDisplayNearestPoint(cursor);
+  const area = display.workArea;
+  const w = 480, h = 700;
+  settingsWindow = new BrowserWindow({
+    width: w,
+    height: h,
+    title: "Sideshow Settings",
+    show: false,
+    frame: true,
+    transparent: false,
+    resizable: true,
+    minimizable: true,
+    maximizable: true,
+    fullscreenable: false,
+    alwaysOnTop: false,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
+  settingsWindow.setPosition(
+    Math.round(area.x + Math.max(0, (area.width - w) / 2)),
+    Math.round(area.y + Math.max(0, (area.height - h) / 2))
+  );
+  settingsWindow.loadFile(path.join(__dirname, "renderer", "settings.html"));
+  settingsWindow.once("ready-to-show", () => { if (settingsWindow) settingsWindow.show(); });
+  settingsWindow.on("closed", () => {
+    settingsWindow = null;
+    /* Restore the bubble to how it was before settings opened:
+       hidden again if it was hidden, untouched if it was showing. */
+    if (!panelVisibleBeforeSettings) hidePanel();
+  });
+}
+
+function closeSettingsWindow() {
+  if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.close();
+}
+
+/* Send a message to every renderer (bubble + settings window). Used
+   for sign-in results, which can start in either window. */
+function sendToAllRenderers(channel, data) {
+  [panel, settingsWindow].forEach((win) => {
+    try {
+      if (win && !win.isDestroyed()) win.webContents.send(channel, data);
+    } catch (e) { /* window gone */ }
+  });
+}
+
+/* Live preview: a settings change in the settings window applies to
+   the visible bubble at once. Main broadcasts the changed key; the
+   bubble renderer reloads that setting and re-applies it. */
+function broadcastSettingsChange(key) {
+  try {
+    if (panel && !panel.isDestroyed()) panel.webContents.send("sideshow:settings-changed", key);
+  } catch (e) { /* panel gone */ }
 }
 
 function togglePanel() {
@@ -607,7 +685,7 @@ function base64url(buf) {
 async function startSignIn() {
   const st = configStatus();
   if (!st.hasConfig || !st.hasOAuth) {
-    if (panel) panel.webContents.send("sideshow:config-missing", st);
+    sendToAllRenderers("sideshow:config-missing", st);
     return;
   }
   if (oauthServer) return;
@@ -642,13 +720,13 @@ async function startSignIn() {
       res.end("<html><body style=\"font-family:sans-serif;padding:40px\"><h2>Signed in</h2><p>Return to Sideshow.</p></body></html>");
       stopOAuthServer();
       if (error || !code || state !== savedState) {
-        if (panel) panel.webContents.send("sideshow:auth-error");
+        sendToAllRenderers("sideshow:auth-error");
         return;
       }
       exchangeCode(code, savedVerifier);
     } catch (e) {
       stopOAuthServer();
-      if (panel) panel.webContents.send("sideshow:auth-error");
+      sendToAllRenderers("sideshow:auth-error");
     }
   });
   oauthServer.listen(OAUTH_PORT, "127.0.0.1", () => {
@@ -656,7 +734,7 @@ async function startSignIn() {
   });
   oauthServer.on("error", () => {
     stopOAuthServer();
-    if (panel) panel.webContents.send("sideshow:auth-error");
+    sendToAllRenderers("sideshow:auth-error");
   });
 }
 
@@ -686,11 +764,11 @@ async function exchangeCode(code, verifier) {
     grant_type: "authorization_code",
   });
   if (!data || !data.id_token) {
-    if (panel) panel.webContents.send("sideshow:auth-error");
+    sendToAllRenderers("sideshow:auth-error");
     return;
   }
   if (data.refresh_token) storeRefreshToken(data.refresh_token);
-  if (panel) panel.webContents.send("sideshow:auth-token", { idToken: data.id_token });
+  sendToAllRenderers("sideshow:auth-token", { idToken: data.id_token });
 }
 
 async function refreshIdToken() {
@@ -788,6 +866,10 @@ ipcMain.handle("sideshow:copy", (_e, text) => {
 });
 
 ipcMain.handle("sideshow:hide", () => { hidePanel(); return true; });
+
+ipcMain.handle("sideshow:open-settings", () => { openSettingsWindow(); return true; });
+
+ipcMain.handle("sideshow:close-settings", () => { closeSettingsWindow(); return true; });
 
 /* Transparent window: the renderer makes transparent areas
    click-through (ignore=true, forwarded so it still gets mousemove)
@@ -972,6 +1054,7 @@ ipcMain.handle("sideshow:get-appearance", () => settings.appearance || "glass");
 ipcMain.handle("sideshow:set-appearance", (_e, value) => {
   settings.appearance = APPEARANCES.indexOf(value) >= 0 ? value : "glass";
   saveSettings();
+  broadcastSettingsChange("appearance");
   return settings.appearance;
 });
 ipcMain.handle("sideshow:get-transparency", () => {
@@ -982,6 +1065,7 @@ ipcMain.handle("sideshow:set-transparency", (_e, value) => {
   const v = Math.max(0, Math.min(100, Math.round(+value || 0)));
   settings.transparency = v;
   saveSettings();
+  broadcastSettingsChange("appearance");
   return v;
 });
 
@@ -1018,6 +1102,7 @@ ipcMain.handle("sideshow:set-bubble-options", (_e, value) => {
   );
   settings.bubble = merged;
   saveSettings();
+  broadcastSettingsChange("bubble-options");
   return merged;
 });
 
@@ -1038,6 +1123,7 @@ ipcMain.handle("sideshow:set-motion", (_e, value) => {
   const v = ["full", "reduced", "off"].indexOf(value) >= 0 ? value : null;
   settings.motion = v;
   saveSettings();
+  broadcastSettingsChange("motion");
   return settings.motion;
 });
 
@@ -1064,6 +1150,7 @@ ipcMain.handle("sideshow:set-accent", (_e, value) => {
   const v = (typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value)) ? value.toLowerCase() : null;
   settings.accent = v;
   saveSettings();
+  broadcastSettingsChange("accent");
   return settings.accent;
 });
 
@@ -1075,6 +1162,7 @@ ipcMain.handle("sideshow:get-calendar", () => calendarSetting());
 ipcMain.handle("sideshow:set-calendar", (_e, value) => {
   settings.calendar = normalizeCalendarSetting(value);
   saveSettings();
+  broadcastSettingsChange("calendar");
   return settings.calendar;
 });
 

@@ -2,7 +2,10 @@
 /* Sideshow panel — the bubble. One floating outline bubble tree:
    Event Bank root -> event bubbles -> value bubbles (click to copy).
    Reads the saved Main Eventer events from Firestore (read-only).
-   Settings live in a separate view, opened with the gear. */
+   Settings live in a separate window (settings.html), opened with
+   the gear; the bubble stays open beside it as a live preview.
+   This same bundle runs in both windows: IS_SETTINGS_WINDOW tells
+   it which one it is. */
 
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged } from "firebase/auth";
@@ -23,6 +26,11 @@ const COLLECTION = "mainEvent_events";
 const SINGLE_KEYS = ["n", "d", "t", "p", "a", "h", "l"];
 
 const $ = (id) => document.getElementById(id);
+/* Which window this bundle runs in: the bubble (index.html) or the
+   settings window (settings.html). The settings window never
+   renders the bubble tree, never reports a content height, and
+   never touches the panel's click-through state. */
+const IS_SETTINGS_WINDOW = /settings\.html$/.test(window.location.pathname);
 let auth = null;
 let db = null;
 let events = []; /* merged view: Main Eventer + Google Calendar */
@@ -59,7 +67,7 @@ const POSITION_LABELS = {
   center: "Center",
   custom: "Remember spot",
 };
-let currentView = "bubble"; /* bubble | settings */
+let currentView = IS_SETTINGS_WINDOW ? "settings" : "bubble"; /* bubble | settings */
 let signedIn = false;
 
 /* ---------- sound: gentle bubble/pop, synthesized (Web Audio) ---------- */
@@ -745,20 +753,21 @@ function render() {
    is shorter or taller than the window), plus the container's bottom
    padding. There is no fixed cap here: the window takes all the room
    its content needs, and main clamps it to the work area, so a tall
-   tree is never cropped. The settings view is always full height.
+   tree is never cropped.
    Reports to main, which resizes the window. */
 const PANEL_MIN_H = 140;
 const PANEL_MAX_H = 560; /* default height when nothing is measurable */
 function measureContentHeight() {
-  const view = currentView === "settings"
-    ? document.querySelector(".settings-body")
-    : $("bubbleTree");
+  const view = $("bubbleTree");
   if (!view || !view.lastElementChild) return PANEL_MAX_H;
   const bottom = view.lastElementChild.getBoundingClientRect().bottom;
   if (!Number.isFinite(bottom) || bottom <= 0) return PANEL_MAX_H;
   return Math.max(PANEL_MIN_H, Math.ceil(bottom) + 16);
 }
 function reportContentHeight() {
+  /* The settings window is a normal resizable window; it never
+     reports a height — only the bubble's height fits the panel. */
+  if (IS_SETTINGS_WINDOW) return;
   try { window.sideshow.reportContentHeight(measureContentHeight()); } catch (e) { /* main keeps its height */ }
 }
 
@@ -805,6 +814,9 @@ document.addEventListener("mouseup", () => {
 const CLICKABLE_SELECTOR = "button, input, select, .bubble, .value-bubble, .settings-view, a";
 let ignoreMouseState = null;
 function updateIgnoreMouse(x, y) {
+  /* The settings window is a normal window; the panel's
+     click-through state is the bubble's business only. */
+  if (IS_SETTINGS_WINDOW) return;
   const el = document.elementFromPoint(x, y);
   const overInteractive = !!(el && el.closest && el.closest(CLICKABLE_SELECTOR));
   const ignore = !overInteractive;
@@ -824,31 +836,6 @@ document.addEventListener("mousemove", (e) => {
   });
 });
 document.addEventListener("mouseleave", () => { lastMousePos = null; });
-
-/* ---------- views: bubble <-> settings ---------- */
-
-function showSettingsView() {
-  currentView = "settings";
-  const bv = $("bubbleView"), sv = $("settingsView");
-  if (bv) bv.hidden = true;
-  if (sv) sv.hidden = false;
-  refreshSettingsUI();
-  refreshCalendarPicker();
-  reportContentHeight();
-  /* Settings is a solid card — clicks on it reach the app. */
-  ignoreMouseState = null;
-  if (lastMousePos) updateIgnoreMouse(lastMousePos.x, lastMousePos.y);
-  else window.sideshow.setIgnoreMouseEvents(false);
-}
-function showBubbleView() {
-  currentView = "bubble";
-  const bv = $("bubbleView"), sv = $("settingsView");
-  if (sv) sv.hidden = true;
-  if (bv) bv.hidden = false;
-  reportContentHeight();
-  ignoreMouseState = null;
-  if (lastMousePos) updateIgnoreMouse(lastMousePos.x, lastMousePos.y);
-}
 
 /* ---------- Google Calendar events (opt-in, never blocks the bubble) ---------- */
 
@@ -1237,7 +1224,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeBtn = $("closeBtn");
   if (closeBtn) closeBtn.addEventListener("click", () => window.sideshow.hide());
   const settingsBtn = $("settingsBtn");
-  if (settingsBtn) settingsBtn.addEventListener("click", () => { playTickSound(); showSettingsView(); });
+  if (settingsBtn) settingsBtn.addEventListener("click", () => { playTickSound(); window.sideshow.openSettings(); });
   /* Header search: typing filters the event bubbles live. The input
      lives in the header, outside the tree, so re-rendering the tree
      never steals its focus. */
@@ -1246,10 +1233,10 @@ document.addEventListener("DOMContentLoaded", () => {
     searchQuery = searchInput.value;
     render();
   });
-  const settingsBackBtn = $("settingsBackBtn");
-  if (settingsBackBtn) settingsBackBtn.addEventListener("click", () => showBubbleView());
+  /* The settings window's X closes the settings window, not the
+     bubble; Esc does the same (see the keydown handler). */
   const settingsCloseBtn = $("settingsCloseBtn");
-  if (settingsCloseBtn) settingsCloseBtn.addEventListener("click", () => window.sideshow.hide());
+  if (settingsCloseBtn) settingsCloseBtn.addEventListener("click", () => window.sideshow.closeSettings());
   const cfgBtn = $("openConfigBtn");
   if (cfgBtn) cfgBtn.addEventListener("click", () => window.sideshow.openConfigFolder());
 
@@ -1553,7 +1540,7 @@ document.addEventListener("DOMContentLoaded", () => {
   /* Keyboard: hotkey capture first, then Esc / single-key shortcuts. */
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      if (currentView === "settings") { showBubbleView(); return; }
+      if (IS_SETTINGS_WINDOW) { window.sideshow.closeSettings(); return; }
       window.sideshow.hide();
       return;
     }
@@ -1597,6 +1584,43 @@ document.addEventListener("DOMContentLoaded", () => {
     const bv = $("bubbleView");
     if (bv) bv.classList.remove("inflate");
   });
+  /* Live preview: a change made in the settings window reaches the
+     bubble through main ("sideshow:settings-changed"). The bubble
+     reloads that setting and re-applies it — no reload, no restart.
+     The settings window never receives this (main sends it to the
+     panel only); it applies its own changes locally. */
+  if (!IS_SETTINGS_WINDOW) window.sideshow.onSettingsChanged(async (key) => {
+    try {
+      if (key === "appearance") {
+        const a = await window.sideshow.getAppearance();
+        if (a) appearanceSetting = a;
+        const t = await window.sideshow.getTransparency();
+        if (typeof t === "number") transparencySetting = t;
+        applyAppearance();
+      } else if (key === "bubble-options") {
+        const b = await window.sideshow.getBubbleOptions();
+        if (b) bubbleOptions = normalizeBubbleOptions(b);
+        applyBubbleOptions();
+        render();
+      } else if (key === "motion") {
+        motionSetting = await window.sideshow.getMotion();
+        applyMotion();
+      } else if (key === "accent") {
+        accentSettingValue = await window.sideshow.getAccent();
+        applyAccent();
+      } else if (key === "calendar") {
+        const c = await window.sideshow.getCalendar();
+        if (c) calSetting = { enabled: !!c.enabled, selectedIds: Array.isArray(c.selectedIds) ? c.selectedIds : [] };
+        calLastFetchAt = 0;
+        if (calSetting.enabled) loadCalendarEvents(true);
+        else { calEvents = []; recomputeEvents(); }
+      }
+    } catch (e) { /* preview update skipped; the bubble still works */ }
+  });
   refreshSettingsUI();
+  /* The settings window populates its calendar picker at startup;
+     the bubble has no picker (its elements are absent, so this is
+     a no-op there). */
+  refreshCalendarPicker();
   init();
 });
