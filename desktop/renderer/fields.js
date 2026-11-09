@@ -126,5 +126,5 @@ function eventMatches(ev, q) {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { parseDateVal, parseTimeVal, fmtTime, fmtDateLong, fmtDateShort, eventChips, eventTitle, eventSubtitle, eventWhen, eventMatches, timeRange, fieldValueForKey };
+  module.exports = { MONTHS, MONTHS_S, DAYS, DAYS_S, parseDateVal, parseTimeVal, fmtTime, fmtDateLong, fmtDateShort, eventChips, eventTitle, eventSubtitle, eventWhen, eventMatches, timeRange, fieldValueForKey };
 }

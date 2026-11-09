@@ -37,7 +37,16 @@
    fieldStyles   per field (n/d/t/p/a/h/l): { italic, underline,
                  bold, color }. Defaults: normal, except Name bold =
                  true — the event title is already bold, so that is
-                 the current look, not an added bold. */
+                 the current look, not an added bold.
+   scrollbar     slim | standard — the tree scrollbar's width.
+                 Default slim. The thumb takes the accent color and
+                 the track is transparent either way.
+   iconColor     null = the theme ink (the current look), or a hex
+                 color for the header icons (gear, magnifier, close).
+   separation    bullets | lines | spacing — how entries are set
+                 apart in the tree. Default bullets (a small dot
+                 before each event); lines puts a thin rule between
+                 entries; spacing adds breathing room instead. */
 
 const FIELD_KEYS = ["n", "d", "t", "p", "a", "h", "l"];
 const FIELD_LABELS = {
@@ -80,6 +89,14 @@ const ALIGNS = ["left", "right", "middle", "center"];
 const ALIGN_LABELS = { left: "Left", right: "Right", middle: "Middle", center: "Center" };
 const ALIGN_CYCLE = ["left", "right", "middle", "center"];
 
+const SCROLLBARS = ["slim", "standard"];
+const SCROLLBAR_LABELS = { slim: "Slim", standard: "Standard" };
+const SCROLLBAR_CYCLE = ["slim", "standard"];
+
+const SEPARATIONS = ["bullets", "lines", "spacing"];
+const SEPARATION_LABELS = { bullets: "Bullets", lines: "Lines", spacing: "Spacing" };
+const SEPARATION_CYCLE = ["bullets", "lines", "spacing"];
+
 const BUBBLE_OPTION_DEFAULTS = {
   scale: 100,
   font: "mono",
@@ -94,6 +111,9 @@ const BUBBLE_OPTION_DEFAULTS = {
   pulse: true,
   textColor: null,
   fieldStyles: {},
+  scrollbar: "slim",
+  iconColor: null,
+  separation: "bullets",
 };
 
 /* The current look per field: normal, except the event title (Name)
@@ -174,6 +194,9 @@ function normalizeBubbleOptions(value) {
     pulse: src.pulse === false ? false : (src.pulse === true ? true : d.pulse),
     textColor: isHex(src.textColor) ? src.textColor : null,
     fieldStyles: normalizeFieldStyles(src.fieldStyles),
+    scrollbar: SCROLLBARS.indexOf(src.scrollbar) >= 0 ? src.scrollbar : d.scrollbar,
+    iconColor: isHex(src.iconColor) ? src.iconColor : null,
+    separation: SEPARATIONS.indexOf(src.separation) >= 0 ? src.separation : d.separation,
   };
 }
 
@@ -194,6 +217,12 @@ if (typeof module !== "undefined" && module.exports) {
     ALIGNS,
     ALIGN_LABELS,
     ALIGN_CYCLE,
+    SCROLLBARS,
+    SCROLLBAR_LABELS,
+    SCROLLBAR_CYCLE,
+    SEPARATIONS,
+    SEPARATION_LABELS,
+    SEPARATION_CYCLE,
     BUBBLE_OPTION_DEFAULTS,
     defaultFieldStyle,
     isHex,

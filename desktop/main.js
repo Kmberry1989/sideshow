@@ -1106,6 +1106,33 @@ ipcMain.handle("sideshow:set-bubble-options", (_e, value) => {
   return merged;
 });
 
+/* Hidden events: ids the user hid with the eye icon. They stay in
+   the bank (and in Settings, where the eye shows them again) but do
+   not render in the bubble, the calendar view, or the badge /
+   reminders. Persisted in settings; the bubble reloads them live. */
+function hiddenEventsSetting() {
+  const ids = Array.isArray(settings.hiddenEvents) ? settings.hiddenEvents : [];
+  const seen = new Set();
+  const out = [];
+  ids.forEach((id) => {
+    if (typeof id === "string" && id && !seen.has(id)) { seen.add(id); out.push(id); }
+  });
+  return out.slice(0, 500);
+}
+ipcMain.handle("sideshow:get-hidden-events", () => hiddenEventsSetting());
+ipcMain.handle("sideshow:set-hidden-events", (_e, value) => {
+  const ids = Array.isArray(value) ? value : [];
+  const seen = new Set();
+  const out = [];
+  ids.forEach((id) => {
+    if (typeof id === "string" && id && !seen.has(id)) { seen.add(id); out.push(id); }
+  });
+  settings.hiddenEvents = out.slice(0, 500);
+  saveSettings();
+  broadcastSettingsChange("hidden-events");
+  return settings.hiddenEvents;
+});
+
 ipcMain.handle("sideshow:get-sound", () => settings.sound !== false);
 
 ipcMain.handle("sideshow:set-sound", (_e, enabled) => {

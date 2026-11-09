@@ -51,6 +51,8 @@ contextBridge.exposeInMainWorld("sideshow", {
   setAccent: (value) => ipcRenderer.invoke("sideshow:set-accent", value),
   getCalendar: () => ipcRenderer.invoke("sideshow:get-calendar"),
   setCalendar: (value) => ipcRenderer.invoke("sideshow:set-calendar", value),
+  getHiddenEvents: () => ipcRenderer.invoke("sideshow:get-hidden-events"),
+  setHiddenEvents: (ids) => ipcRenderer.invoke("sideshow:set-hidden-events", ids),
   listCalendars: () => ipcRenderer.invoke("sideshow:list-calendars"),
   getCalendarEvents: (calendarIds) => ipcRenderer.invoke("sideshow:get-calendar-events", calendarIds),
   eventsUpdated: (list) => ipcRenderer.invoke("sideshow:events-updated", list),

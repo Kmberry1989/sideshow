@@ -60,7 +60,7 @@ body {
 .bubble-header button {
   border: 1px solid var(--line);
   background: var(--bubble-fill);
-  color: var(--ink-soft);
+  color: var(--icon-color-user, var(--ink-soft));
   line-height: 1;
   cursor: pointer;
   width: 36px;
@@ -71,11 +71,13 @@ body {
   justify-content: center;
   padding: 0;
   border-radius: 999px;
-  transition: color var(--dur) var(--ease), transform var(--dur) var(--ease);
+  transition: color var(--dur) var(--ease), transform var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
-.bubble-header button:hover { color: var(--ink); transform: scale(1.08); }
+.bubble-header button:hover { color: var(--icon-color-user, var(--ink)); transform: scale(1.08); }
+.bubble-header button.active { border-color: var(--accent); color: var(--accent); }
 .bubble-header button svg { display: block; }
 #settingsBtn svg { width: 21px; height: 21px; }
+#calendarViewBtn svg { width: 18px; height: 18px; }
 #closeBtn svg { width: 24px; height: 24px; }
 /* Search: magnifying glass + text input. The input is a real text
    field — it stays editable and selectable; the app's no-select /
@@ -96,7 +98,7 @@ body {
   width: 16px;
   height: 16px;
   flex: none;
-  color: var(--ink-soft);
+  color: var(--icon-color-user, var(--ink-soft));
 }
 .search-box input {
   flex: 1;
@@ -118,13 +120,26 @@ body {
 .bubble-tree {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 4px 14px 16px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   /* Mono is the current bubble type; the font option swaps it. */
   font-family: var(--bubble-font, ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace);
+  /* Firefox scrollbar: thin + accent thumb, transparent track. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
 }
+.scrollbar-standard .bubble-tree, .scrollbar-standard .settings-body { scrollbar-width: auto; }
+/* Themed scrollbar (Chromium): accent thumb, transparent track,
+   rounded. Width comes from --scroll-w (slim 6px / standard 12px). */
+.scrollbar-slim { --scroll-w: 6px; }
+.scrollbar-standard { --scroll-w: 12px; }
+.bubble-tree::-webkit-scrollbar, .settings-body::-webkit-scrollbar { width: var(--scroll-w, 6px); }
+.bubble-tree::-webkit-scrollbar-thumb, .settings-body::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 999px; }
+.bubble-tree::-webkit-scrollbar-track, .settings-body::-webkit-scrollbar-track { background: transparent; }
+.bubble-tree[hidden], .calendar-view[hidden] { display: none; }
 .bubble {
   display: inline-flex;
   align-items: center;
@@ -218,6 +233,124 @@ body {
 .signin-bubble, .empty-bubble { padding: 7px 14px; font-size: 13.5px; }
 .empty-bubble { cursor: default; }
 .empty-bubble:hover { border-color: var(--bubble-border); }
+
+/* ---------- Entry separation (Appearance) ---------- */
+/* Bullets: a small dot inside each event bubble, before the title.
+   Lines: a thin rule between entries. Spacing: breathing room. */
+.sep-bullets .event-bubble::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft)));
+  flex: none;
+  margin-top: 7px;
+}
+.sep-lines .event-branch:not(:last-child) { border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.sep-spacing .event-branch { margin-bottom: 20px; }
+
+/* ---------- Eye (hide / show one event) ---------- */
+.eye-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft)));
+  border-radius: 999px;
+  cursor: pointer;
+  margin-left: 2px;
+  margin-top: 1px;
+}
+.eye-btn:hover { color: var(--bubble-ink-user, var(--bubble-ink-auto, var(--ink))); }
+.eye-btn svg { width: 15px; height: 15px; display: block; }
+
+/* ---------- Calendar view (month grid) ---------- */
+/* 7 equal columns so the grid fits the 400px frame exactly; cells
+   grow vertically, never sideways. Chips truncate with ellipsis. */
+.calendar-view {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 14px 16px;
+  min-height: 0;
+  font-family: var(--bubble-font, ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace);
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+}
+.calendar-view::-webkit-scrollbar { width: var(--scroll-w, 6px); }
+.calendar-view::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 999px; }
+.calendar-view::-webkit-scrollbar-track { background: transparent; }
+.cal-head { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
+.cal-nav {
+  border: 1px solid var(--line);
+  background: var(--bubble-fill);
+  color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft)));
+  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  flex: none;
+  padding: 0;
+}
+.cal-nav:hover { color: var(--bubble-ink-user, var(--bubble-ink-auto, var(--ink))); }
+.cal-label {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--bubble-ink-user, var(--bubble-ink-auto, var(--ink)));
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+  padding: 0;
+}
+.cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 2px; }
+.cal-dow span { text-align: center; font-size: 11px; font-weight: 700; color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft))); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal-cell { min-width: 0; min-height: 44px; padding: 3px 3px 4px; border-radius: 8px; display: flex; flex-direction: column; gap: 2px; }
+.cal-cell.cal-out { opacity: 0.45; }
+.cal-cell.cal-today { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.cal-day { font-size: 11px; font-weight: 700; color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft))); line-height: 1.2; }
+.cal-event {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--bubble-border);
+  background: var(--bubble-fill);
+  color: var(--bubble-ink-user, var(--bubble-ink-auto, var(--ink)));
+  border-radius: 6px;
+  padding: 2px 4px;
+  font: inherit;
+  font-size: 10.5px;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cal-event:hover { border-color: var(--accent); }
+
+/* ---------- Hover magnification (Dock-style) ---------- */
+/* The hovered entry inflates a little more while the others deflate
+   slightly. The scale lives on the inner bubble, not the branch —
+   the branch carries the pulse animation, so the two never fight
+   over one transform. Motion full only; reduced/off means none.
+   The tree's horizontal padding absorbs the growth, so nothing
+   clips at the frame edges. */
+.motion-full .bubble-tree .event-bubble:hover { transform: scale(1.05); }
+.motion-full .bubble-tree .value-bubble:hover { transform: scale(1.05); }
+.motion-full .bubble-tree:has(.event-branch:hover) .event-branch:not(:hover) .event-bubble { transform: scale(0.98); }
+.motion-full .bubble-tree .value-branch:has(.value-bubble:hover) .value-bubble:not(:hover) { transform: scale(0.98); }
 
 /* ---------- Per-field text styling ---------- */
 /* Applied by the renderer to a value bubble or the event title,
@@ -390,7 +523,7 @@ body.settings-window .settings-view {
   flex: none;
 }
 .settings-header button {
-  border: 0; background: none; color: var(--ink-soft);
+  border: 0; background: none; color: var(--icon-color-user, var(--ink-soft));
   line-height: 1; cursor: pointer;
   width: 36px; height: 36px;
   display: inline-flex; align-items: center; justify-content: center;
@@ -398,7 +531,7 @@ body.settings-window .settings-view {
   transition: color var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
 .settings-header button svg { display: block; width: 24px; height: 24px; }
-.settings-header button:hover { color: var(--ink); transform: scale(1.08); }
+.settings-header button:hover { color: var(--icon-color-user, var(--ink)); transform: scale(1.08); }
 .settings-title { font-size: 15px; font-weight: 700; }
 .settings-body {
   flex: 1;
@@ -496,6 +629,36 @@ input[type="color"].color-input::-moz-color-swatch { border: none; border-radius
    calendar color dot. Hidden until the toggle is on. */
 .calendar-picker { display: flex; flex-direction: column; gap: 6px; margin-top: -6px; }
 .calendar-picker[hidden] { display: none; }
+
+/* Events list (Settings > Events tab): one row per saved event —
+   title (tap to edit, Main Eventer events only) + eye. Hidden
+   rows read dimmed. The edit form is plain labeled inputs. */
+.events-list { display: flex; flex-direction: column; gap: 2px; }
+.event-row { border-bottom: 1px solid var(--line); padding: 6px 0; }
+.event-row:last-child { border-bottom: none; }
+.event-row-head { display: flex; align-items: center; gap: 8px; }
+.event-row-title {
+  flex: 1; min-width: 0; border: 0; background: none; padding: 0;
+  font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink);
+  text-align: left; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+span.event-row-title { cursor: default; }
+.event-row.is-hidden .event-row-title { opacity: 0.55; }
+.events-empty { font-size: 13px; color: var(--ink-soft); padding: 8px 0; }
+.event-edit { display: flex; flex-direction: column; gap: 8px; padding: 10px 0 4px; }
+.event-edit-field {
+  display: flex; flex-direction: column; gap: 2px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--ink-soft);
+}
+.event-edit-field input {
+  min-width: 0; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: var(--ink);
+  padding: 6px 8px; font: inherit; font-size: 13px;
+  text-transform: none; letter-spacing: normal;
+  -webkit-user-select: text; user-select: text;
+}
 .calendar-status { margin: 0; font-size: 12.5px; color: var(--ink-soft); }
 .calendar-status:empty { display: none; }
 .calendar-list { display: flex; flex-direction: column; gap: 6px; }

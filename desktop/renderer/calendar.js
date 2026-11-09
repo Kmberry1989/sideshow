@@ -104,6 +104,52 @@ function dedupKey(ev) {
   return ((ev.title || "").trim().toLowerCase()) + "|" + (ev.date || "") + "|" + (ev.startTime || "");
 }
 
+/* ---------- month grid view (pure, unit-tested) ---------- */
+
+/* Days in a month (month 0-based). */
+function daysInMonth(year, month) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+/* A month as 6 weeks × 7 cells, weeks starting Sunday. Each cell is
+   { date: "YYYY-MM-DD", day: number, inMonth: boolean } — days from
+   the adjacent months fill the first/last week (dimmed, not blank),
+   so the grid is always full and fits the frame exactly. */
+function monthGrid(year, month) {
+  const first = new Date(year, month, 1);
+  const startDay = first.getDay(); /* 0 = Sunday */
+  const start = new Date(year, month, 1 - startDay);
+  const weeks = [];
+  for (let w = 0; w < 6; w++) {
+    const week = [];
+    for (let d = 0; d < 7; d++) {
+      const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate() + w * 7 + d);
+      const y = cur.getFullYear(), m = cur.getMonth(), day = cur.getDate();
+      week.push({
+        date: y + "-" + pad(m + 1) + "-" + pad(day),
+        day,
+        inMonth: m === month,
+      });
+    }
+    weeks.push(week);
+  }
+  return weeks;
+}
+
+/* Events grouped by their start date ("YYYY-MM-DD" -> [ev, ...]).
+   Multi-day events sit on their start date only; dateless events
+   are left out (they stay in the tree). */
+function groupEventsByDate(events) {
+  const byDate = {};
+  (Array.isArray(events) ? events : []).forEach((ev) => {
+    if (!ev || !ev.date || typeof ev.date !== "string") return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ev.date)) return;
+    if (!byDate[ev.date]) byDate[ev.date] = [];
+    byDate[ev.date].push(ev);
+  });
+  return byDate;
+}
+
 function compareCal(a, b) {
   if (a.date !== b.date) return (a.date || "") < (b.date || "") ? -1 : 1;
   if (a.startTime !== b.startTime) return (a.startTime || "") < (b.startTime || "") ? -1 : 1;
@@ -131,5 +177,5 @@ function mergeEvents(meEvents, calEvents) {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { parseCalendarDescription, calendarEventToRecord, mergeEvents, localDateTime, dedupKey };
+  module.exports = { parseCalendarDescription, calendarEventToRecord, mergeEvents, localDateTime, dedupKey, daysInMonth, monthGrid, groupEventsByDate };
 }

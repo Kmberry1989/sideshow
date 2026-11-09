@@ -27,18 +27,19 @@ const rendererJs = read(path.join(RENDERER, "renderer.js"));
 /* Every control the settings form is supposed to have. */
 const SETTINGS_IDS = [
   "settingsView", "settingsCloseBtn", "settingsTabs", "settingsStatus",
-  "tab-position", "tab-appearance", "tab-text", "tab-summon", "tab-general",
+  "tab-position", "tab-appearance", "tab-text", "tab-summon", "tab-general", "tab-events",
   "positionBtn", "appearanceBtns", "appearanceGlassBtn", "appearanceShadedBtn",
   "appearanceClearBtn", "transparencySlider", "scaleSlider", "scaleValue",
   "fontBtn", "weightBtn", "borderSwatches", "borderColorInput",
   "shadowBtn", "shadowStrengthSlider", "shadowStrengthValue",
   "bgSwatches", "bgColorInput", "cornerStyleBtn", "cornerRadiusSlider",
-  "cornerRadiusValue", "alignBtn", "pulseBtn", "textColorSwatches",
+  "cornerRadiusValue", "alignBtn", "pulseBtn", "scrollbarBtn",
+  "iconSwatches", "iconColorInput", "separationBtn", "textColorSwatches",
   "textColorInput", "fieldOutline", "hotkeyBtn", "doubletapBtn",
   "gestureBtn", "gestureClearBtn", "longclickBtn", "longclickClearBtn",
   "authLabel", "signInBtn", "signOutBtn", "soundBtn", "motionBtn",
   "remindersBtn", "accentSwatches", "calendarToggleBtn", "calendarPicker",
-  "calendarPickerStatus", "calendarList",
+  "calendarPickerStatus", "calendarList", "eventsList",
 ];
 
 test("settings form lives in settings.html, not in the bubble", () => {

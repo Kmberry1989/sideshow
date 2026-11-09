@@ -9,13 +9,14 @@
 
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged } from "firebase/auth";
-import { getFirestore, collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
-import { eventTitle, eventWhen, eventMatches, fieldValueForKey } from "./fields.js";
-import { calendarEventToRecord, mergeEvents } from "./calendar.js";
+import { getFirestore, collection, query, orderBy, limit, onSnapshot, doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { eventTitle, eventWhen, eventMatches, fieldValueForKey, MONTHS } from "./fields.js";
+import { calendarEventToRecord, mergeEvents, monthGrid, groupEventsByDate } from "./calendar.js";
 import {
   FIELD_KEYS, FIELD_LABELS, FONTS, FONT_LABELS, FONT_CYCLE,
   WEIGHTS, WEIGHT_LABELS, WEIGHT_CYCLE,
   CORNER_LABELS, CORNER_CYCLE, ALIGN_LABELS, ALIGN_CYCLE,
+  SCROLLBAR_LABELS, SCROLLBAR_CYCLE, SEPARATION_LABELS, SEPARATION_CYCLE,
   normalizeBubbleOptions, rgba, readableInkFor,
 } from "../bubble-options.js";
 
@@ -69,6 +70,15 @@ const POSITION_LABELS = {
 };
 let currentView = IS_SETTINGS_WINDOW ? "settings" : "bubble"; /* bubble | settings */
 let signedIn = false;
+let hiddenIds = new Set(); /* event _ids hidden with the eye; stay in the bank, out of the bubble */
+/* Bubble view mode: "tree" (the branch list) or "calendar" (month
+   grid). The calendar is a navigation aid — clicking an entry jumps
+   back to the tree with that event's branch open. */
+let bubbleViewMode = "tree";
+const now0 = new Date();
+let calViewYear = now0.getFullYear();
+let calViewMonth = now0.getMonth(); /* 0-based */
+let eventsListOpen = new Set(); /* event _ids with their edit form open in Settings */
 
 /* ---------- sound: gentle bubble/pop, synthesized (Web Audio) ---------- */
 
@@ -339,6 +349,17 @@ function applyBubbleOptions() {
   /* Branch alignment. */
   root.classList.remove("align-left", "align-right", "align-middle", "align-center");
   root.classList.add("align-" + o.align);
+  /* Scrollbar width: slim (6px) or standard (12px). The thumb
+     takes the accent color; the track is transparent either way. */
+  root.classList.remove("scrollbar-slim", "scrollbar-standard");
+  root.classList.add("scrollbar-" + o.scrollbar);
+  /* Entry separation: bullets / divider lines / extra spacing. */
+  root.classList.remove("sep-bullets", "sep-lines", "sep-spacing");
+  root.classList.add("sep-" + o.separation);
+  /* Header icon color: an explicit choice wins over the theme ink
+     (the value-bubble copy/confirm icons keep their own color). */
+  if (o.iconColor) root.style.setProperty("--icon-color-user", o.iconColor);
+  else root.style.removeProperty("--icon-color-user");
   /* Text color: an explicit choice wins over the background's auto ink. */
   if (o.textColor) {
     root.style.setProperty("--bubble-ink-user", o.textColor);
@@ -374,7 +395,7 @@ function fieldStyleColor(key) {
 
 /* ---------- settings tabs ---------- */
 
-const SETTINGS_TABS = ["position", "appearance", "text", "summon", "general"];
+const SETTINGS_TABS = ["position", "appearance", "text", "summon", "general", "events"];
 let settingsTab = "position";
 function switchSettingsTab(name) {
   if (SETTINGS_TABS.indexOf(name) < 0) name = "position";
@@ -384,6 +405,7 @@ function switchSettingsTab(name) {
     const panel = $("tab-" + t);
     if (panel) panel.hidden = t !== name;
   });
+  if (name === "events") renderEventsList();
   reportContentHeight();
 }
 
@@ -530,6 +552,8 @@ function refreshBubbleOptionControls() {
   setText("weightBtn", WEIGHT_LABELS[o.weight] || "Regular");
   setText("cornerStyleBtn", CORNER_LABELS[o.cornerStyle] || "Smooth");
   setText("alignBtn", ALIGN_LABELS[o.align] || "Left");
+  setText("scrollbarBtn", SCROLLBAR_LABELS[o.scrollbar] || "Slim");
+  setText("separationBtn", SEPARATION_LABELS[o.separation] || "Bullets");
   setText("pulseBtn", o.pulse ? "On" : "Off");
   setText("shadowBtn", o.shadowOn ? "On" : "Off");
   setVal("scaleSlider", o.scale);
@@ -541,9 +565,11 @@ function refreshBubbleOptionControls() {
   refreshColorSwatches("borderSwatches", o.borderColor);
   refreshColorSwatches("bgSwatches", o.bgColor);
   refreshColorSwatches("textColorSwatches", o.textColor);
+  refreshColorSwatches("iconSwatches", o.iconColor);
   setVal("borderColorInput", o.borderColor || "#a44a24");
   setVal("bgColorInput", o.bgColor || "#a44a24");
   setVal("textColorInput", o.textColor || "#2b2118");
+  setVal("iconColorInput", o.iconColor || "#2b2118");
   refreshFieldOutline();
 }
 
@@ -590,6 +616,12 @@ const SOUND_OFF_SVG = '<svg ' + ICON_ATTRS + '><polygon points="11 5 6 9 2 9 2 1
 const BELL_ON_SVG = '<svg ' + ICON_ATTRS + '><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
 const BELL_OFF_SVG = '<svg ' + ICON_ATTRS + '><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.63 13A17.89 17.89 0 0 1 18 8"/><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/><path d="M18 8a6 6 0 0 0-9.33-5"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
 const X_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+/* Eye icons (SVG, never emoji): hide an event from the bubble, or
+   show it again from the Settings Events list. */
+const EYE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+/* Calendar icon for the tree/calendar toggle in the bubble header. */
+const CALENDAR_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
 
 function copyValue(value, bubbleEl) {
   if (!value) return;
@@ -623,10 +655,252 @@ function valueBubblesFor(ev) {
     .filter((v) => v.value);
 }
 
+/* ---------- hide / show + calendar view + Events list ---------- */
+
+/* Events the bubble shows right now: hidden ones removed, then the
+   live search filter. */
+function visibleEvents() {
+  const shown = events.filter((ev) => !hiddenIds.has(ev._id));
+  return searchQuery ? shown.filter((ev) => eventMatches(ev, searchQuery)) : shown;
+}
+
+/* Hide or show one event. The id stays in the bank (and in
+   Settings, where the eye shows it again); it just stops rendering
+   in the bubble, the calendar, and the badge / reminders. */
+async function setEventHidden(ev, hidden) {
+  if (!ev || !ev._id) return;
+  if (hidden) hiddenIds.add(ev._id);
+  else hiddenIds.delete(ev._id);
+  if (hidden && focusedEvent && focusedEvent._id === ev._id) focusedEvent = null;
+  try { await window.sideshow.setHiddenEvents([...hiddenIds]); } catch (e) { /* stays local */ }
+  render();
+  if (IS_SETTINGS_WINDOW) renderEventsList();
+}
+
+function pad2(n) { return (n < 10 ? "0" : "") + n; }
+
+/* Which view the bubble shows: the branch tree or the month grid.
+   The toggle button's active state follows the mode. */
+function applyViewMode() {
+  const tree = $("bubbleTree");
+  const cal = $("calendarView");
+  if (tree) tree.hidden = bubbleViewMode === "calendar";
+  if (cal) cal.hidden = bubbleViewMode !== "calendar";
+  const btn = $("calendarViewBtn");
+  if (btn) btn.classList.toggle("active", bubbleViewMode === "calendar");
+}
+
+function setBubbleViewMode(mode) {
+  bubbleViewMode = mode === "calendar" ? "calendar" : "tree";
+  render();
+  reportContentHeight();
+}
+
+function shiftCalMonth(delta) {
+  let m = calViewMonth + delta;
+  let y = calViewYear;
+  while (m < 0) { m += 12; y -= 1; }
+  while (m > 11) { m -= 12; y += 1; }
+  calViewMonth = m;
+  calViewYear = y;
+  renderCalendar();
+  reportContentHeight();
+}
+
+/* The month grid: weekday row, then 6 weeks of cells. Each cell
+   carries its day number and the visible events on that date as
+   clickable chips; clicking one jumps back to the tree with that
+   event's branch open. Multi-day events sit on their start date;
+   dateless events stay in the tree. The grid is 7 equal columns so
+   it fits the 400px frame exactly; cells grow vertically, never
+   sideways. */
+function renderCalendar() {
+  const view = $("calendarView");
+  if (!view) return;
+  view.innerHTML = "";
+  const byDate = groupEventsByDate(visibleEvents());
+  const head = document.createElement("div");
+  head.className = "cal-head";
+  const prev = document.createElement("button");
+  prev.type = "button";
+  prev.className = "cal-nav";
+  prev.setAttribute("aria-label", "Previous month");
+  prev.textContent = "‹";
+  prev.addEventListener("click", () => shiftCalMonth(-1));
+  const label = document.createElement("button");
+  label.type = "button";
+  label.className = "cal-label";
+  label.textContent = MONTHS[calViewMonth] + " " + calViewYear;
+  label.title = "Back to this month";
+  label.addEventListener("click", () => {
+    const n = new Date();
+    calViewYear = n.getFullYear();
+    calViewMonth = n.getMonth();
+    renderCalendar();
+    reportContentHeight();
+  });
+  const next = document.createElement("button");
+  next.type = "button";
+  next.className = "cal-nav";
+  next.setAttribute("aria-label", "Next month");
+  next.textContent = "›";
+  next.addEventListener("click", () => shiftCalMonth(1));
+  head.appendChild(prev);
+  head.appendChild(label);
+  head.appendChild(next);
+  view.appendChild(head);
+  const dow = document.createElement("div");
+  dow.className = "cal-dow";
+  ["S", "M", "T", "W", "T", "F", "S"].forEach((d) => {
+    const s = document.createElement("span");
+    s.textContent = d;
+    dow.appendChild(s);
+  });
+  view.appendChild(dow);
+  const grid = document.createElement("div");
+  grid.className = "cal-grid";
+  const today = new Date();
+  const todayStr = today.getFullYear() + "-" + pad2(today.getMonth() + 1) + "-" + pad2(today.getDate());
+  monthGrid(calViewYear, calViewMonth).forEach((week) => {
+    week.forEach((cell) => {
+      const el = document.createElement("div");
+      el.className = "cal-cell" + (cell.inMonth ? "" : " cal-out") + (cell.date === todayStr ? " cal-today" : "");
+      const num = document.createElement("span");
+      num.className = "cal-day";
+      num.textContent = String(cell.day);
+      el.appendChild(num);
+      (byDate[cell.date] || []).forEach((ev) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "cal-event";
+        chip.textContent = eventTitle(ev);
+        chip.title = eventTitle(ev);
+        chip.addEventListener("click", () => {
+          focusedEvent = ev;
+          setBubbleViewMode("tree");
+          const card = document.querySelector("#bubbleTree .event-branch.expanded");
+          if (card) card.scrollIntoView({ block: "nearest" });
+        });
+        el.appendChild(chip);
+      });
+      grid.appendChild(el);
+    });
+  });
+  view.appendChild(grid);
+}
+
+/* Events list (Settings > Events tab): every saved event with its
+   eye, and an edit form for Main Eventer events. Google Calendar
+   events are read-only here — they live in Google Calendar, not
+   the bank — so they get the eye only, no form. */
+const EVENT_EDIT_FIELDS = [
+  { key: "title", label: "Name", type: "text" },
+  { key: "date", label: "Date", type: "date" },
+  { key: "startTime", label: "Start", type: "time" },
+  { key: "endTime", label: "End", type: "time" },
+  { key: "price", label: "Price", type: "text" },
+  { key: "ages", label: "Ages", type: "text" },
+  { key: "host", label: "Host", type: "text" },
+  { key: "location", label: "Location", type: "text" },
+];
+
+function renderEventsList() {
+  const list = $("eventsList");
+  if (!list) return;
+  list.innerHTML = "";
+  if (!signedIn) {
+    const empty = document.createElement("div");
+    empty.className = "events-empty";
+    empty.textContent = "Sign in to edit events.";
+    list.appendChild(empty);
+    return;
+  }
+  if (!events.length) {
+    const empty = document.createElement("div");
+    empty.className = "events-empty";
+    empty.textContent = "No saved events yet.";
+    list.appendChild(empty);
+    return;
+  }
+  events.forEach((ev) => {
+    const hidden = hiddenIds.has(ev._id);
+    const isCal = ev.source === "gcal";
+    const row = document.createElement("div");
+    row.className = "event-row" + (hidden ? " is-hidden" : "");
+    const head = document.createElement("div");
+    head.className = "event-row-head";
+    const title = document.createElement(isCal ? "span" : "button");
+    title.className = "event-row-title";
+    title.textContent = eventTitle(ev);
+    if (!isCal) {
+      title.type = "button";
+      title.addEventListener("click", () => {
+        if (eventsListOpen.has(ev._id)) eventsListOpen.delete(ev._id);
+        else eventsListOpen.add(ev._id);
+        renderEventsList();
+      });
+    }
+    head.appendChild(title);
+    const eye = document.createElement("button");
+    eye.type = "button";
+    eye.className = "eye-btn";
+    eye.setAttribute("aria-label", hidden ? "Show event" : "Hide event");
+    eye.title = hidden ? "Show event" : "Hide event";
+    eye.innerHTML = hidden ? EYE_OFF_SVG : EYE_SVG;
+    eye.addEventListener("click", () => setEventHidden(ev, !hidden));
+    head.appendChild(eye);
+    row.appendChild(head);
+    if (!isCal && eventsListOpen.has(ev._id)) {
+      const form = document.createElement("div");
+      form.className = "event-edit";
+      EVENT_EDIT_FIELDS.forEach((f) => {
+        const wrap = document.createElement("label");
+        wrap.className = "event-edit-field";
+        const lab = document.createElement("span");
+        lab.textContent = f.label;
+        const input = document.createElement("input");
+        input.type = f.type;
+        input.dataset.field = f.key;
+        input.value = ev[f.key] || "";
+        wrap.appendChild(lab);
+        wrap.appendChild(input);
+        form.appendChild(wrap);
+      });
+      const save = document.createElement("button");
+      save.type = "button";
+      save.className = "btn";
+      save.textContent = "Save";
+      save.addEventListener("click", () => saveEventEdit(ev, form, save));
+      form.appendChild(save);
+      row.appendChild(form);
+    }
+    list.appendChild(row);
+  });
+}
+
+/* Save an edited event back to Firestore — the same bank the
+   bubble reads, so the change shows up everywhere at once. The
+   updatedAt stamp keeps the newest-first order. */
+async function saveEventEdit(ev, form, saveBtn) {
+  if (!db || !ev || !ev._id) return;
+  const patch = { updatedAt: serverTimestamp() };
+  form.querySelectorAll("input[data-field]").forEach((input) => {
+    patch[input.dataset.field] = input.value || "";
+  });
+  try {
+    await updateDoc(doc(db, COLLECTION, ev._id), patch);
+    eventsListOpen.delete(ev._id);
+    flashSaved(saveBtn);
+    renderEventsList();
+  } catch (e) {
+    setStatus("Could not save.");
+  }
+}
+
 function render() {
   const tree = $("bubbleTree");
   if (!tree) return;
-  if (focusedEvent && !events.some((e) => e._id === focusedEvent._id)) focusedEvent = null;
+  if (focusedEvent && !visibleEvents().some((e) => e._id === focusedEvent._id)) focusedEvent = null;
   tree.innerHTML = "";
 
   /* Root bubble — the Event Bank. Drag it to move the panel; click
@@ -642,6 +916,18 @@ function render() {
   const connector = document.createElement("div");
   connector.className = "tree-connector";
   tree.appendChild(connector);
+
+  /* Calendar view: the month grid replaces the tree, even with no
+     events yet (an empty month) — the toggle must always work, not
+     silently do nothing while signed out or with an empty bank. */
+  if (bubbleViewMode === "calendar") {
+    applyViewMode();
+    setState("list");
+    renderCalendar();
+    reportContentHeight();
+    return;
+  }
+  applyViewMode();
 
   if (!signedIn) {
     const signin = document.createElement("button");
@@ -670,13 +956,14 @@ function render() {
   setState("list");
   /* Live search: the header search bar filters the event bubbles by
      keyword (name, date, time, price, ages, host, location,
-     description). Empty search shows all events. */
-  const visible = searchQuery ? events.filter((ev) => eventMatches(ev, searchQuery)) : events;
+     description). Hidden events never show. Empty search shows all
+     visible events. */
+  const visible = visibleEvents();
   if (!visible.length) {
     const empty = document.createElement("div");
     empty.className = "bubble empty-bubble pulse-item";
     empty.style.animationDelay = "0.5s";
-    empty.textContent = "No matching events.";
+    empty.textContent = searchQuery ? "No matching events." : "All events hidden.";
     tree.appendChild(empty);
     reportContentHeight();
     return;
@@ -712,11 +999,20 @@ function render() {
         (i ? '<span class="event-meta-sep">·</span>' : "") +
         '<span class="event-meta-item">' + escapeHtml(m) + "</span>").join("") + "</span>" : "") +
       "</span>" +
-      '<span class="expand-mark">' + (isExpanded ? "−" : "+") + "</span>";
+      '<span class="expand-mark">' + (isExpanded ? "−" : "+") + "</span>" +
+      '<span class="eye-btn" role="button" aria-label="Hide event" title="Hide event">' + EYE_SVG + "</span>";
     btn.addEventListener("click", () => {
       focusedEvent = isExpanded ? null : ev;
       if (isExpanded) playCloseSound(); else playTickSound();
       render();
+    });
+    /* The eye hides the event without expanding it — stop the click
+       from reaching the bubble's own toggle. */
+    const eye = btn.querySelector(".eye-btn");
+    if (eye) eye.addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      setEventHidden(ev, true);
     });
     item.appendChild(btn);
 
@@ -731,7 +1027,10 @@ function render() {
         const fcolor = fieldStyleColor(key);
         if (fcolor) vb.style.color = fcolor;
         vb.dataset.key = key;
-        vb.innerHTML = COPY_SVG + '<span class="key-badge">' + key.toUpperCase() + '</span><span class="value-text">' + escapeHtml(value) + "</span>" + CONFIRM_SVG;
+        /* The shortcut key sits after the value, as an afterthought —
+           not before it as a lead-in. The confirm checkmark only
+           shows on copy, after the badge. */
+        vb.innerHTML = COPY_SVG + '<span class="value-text">' + escapeHtml(value) + '</span><span class="key-badge">' + key.toUpperCase() + "</span>" + CONFIRM_SVG;
         vb.addEventListener("click", () => copyValue(value, vb));
         values.appendChild(vb);
       });
@@ -758,7 +1057,10 @@ function render() {
 const PANEL_MIN_H = 140;
 const PANEL_MAX_H = 560; /* default height when nothing is measurable */
 function measureContentHeight() {
-  const view = $("bubbleTree");
+  /* Measure whichever view is showing — the tree or the calendar
+     grid. The hidden view's rects are all zero, so it must be the
+     visible one. */
+  const view = bubbleViewMode === "calendar" ? $("calendarView") : $("bubbleTree");
   if (!view || !view.lastElementChild) return PANEL_MAX_H;
   const bottom = view.lastElementChild.getBoundingClientRect().bottom;
   if (!Number.isFinite(bottom) || bottom <= 0) return PANEL_MAX_H;
@@ -845,6 +1147,7 @@ function recomputeEvents() {
   events = mergeEvents(meEvents, calEvents);
   if (focusedEvent && !events.some((e) => e._id === focusedEvent._id)) focusedEvent = null;
   render();
+  if (IS_SETTINGS_WINDOW) renderEventsList();
   syncEventsToMain();
 }
 
@@ -883,7 +1186,9 @@ function maybeRefreshCalendarEvents() {
 
 function syncEventsToMain() {
   try {
-    const list = events.map((ev) => ({
+    /* Hidden events stay out of the badge + reminders too — hidden
+       means out of sight, not just out of the tree. */
+    const list = events.filter((ev) => !hiddenIds.has(ev._id)).map((ev) => ({
       id: ev._id || null,
       title: ev.title || "",
       date: ev.date || "",
@@ -899,6 +1204,8 @@ function openEventById(id) {
   if (!id) return;
   const ev = events.find((e) => e._id === id);
   if (!ev) return;
+  /* A reminder opens the branch in the tree, even from the calendar. */
+  if (bubbleViewMode !== "tree") { bubbleViewMode = "tree"; applyViewMode(); }
   focusedEvent = ev;
   render();
   const card = document.querySelector("#bubbleTree .event-branch.expanded");
@@ -913,6 +1220,7 @@ function openEventById(id) {
    settings view. */
 function handleSingleKey(e) {
   if (currentView !== "bubble") return;
+  if (bubbleViewMode !== "tree") return; /* no value bubbles in the calendar */
   if (capturingHotkey || capturingDoubleTap || recordingGesture || recordingLongClick) return;
   const tag = (document.activeElement && document.activeElement.tagName) || "";
   if (tag === "INPUT" || tag === "TEXTAREA") return;
@@ -979,6 +1287,12 @@ async function signInWithIdToken(idToken) {
 
 async function init() {
   setState("loading");
+  /* Hidden ids first, before the snapshot subscribes — otherwise the
+     first render can flash events the user hid. */
+  try {
+    const h = await window.sideshow.getHiddenEvents();
+    if (Array.isArray(h)) hiddenIds = new Set(h);
+  } catch (e) { /* hidden list stays empty */ }
   const st = await window.sideshow.configStatus();
   if (!st.hasConfig) { setState("config"); return; }
   const fbConfig = await window.sideshow.firebaseConfig();
@@ -1106,6 +1420,12 @@ async function refreshSettingsUI() {
     const picker = $("calendarPicker");
     if (picker) picker.hidden = !calSetting.enabled;
   } catch (e) { /* calendar toggle stays as-is */ }
+  try {
+    const h = await window.sideshow.getHiddenEvents();
+    if (Array.isArray(h)) hiddenIds = new Set(h);
+    render();
+    if (IS_SETTINGS_WINDOW) renderEventsList();
+  } catch (e) { /* hidden list stays as-is */ }
 }
 
 /* Google Calendar picker: the user's calendars with a checkbox each.
@@ -1199,6 +1519,7 @@ document.addEventListener("DOMContentLoaded", () => {
   buildColorSwatches("borderSwatches", () => bubbleOptions.borderColor, async (v) => { bubbleOptions.borderColor = v; await saveBubbleOptions(); applyBubbleOptions(); });
   buildColorSwatches("bgSwatches", () => bubbleOptions.bgColor, async (v) => { bubbleOptions.bgColor = v; await saveBubbleOptions(); applyBubbleOptions(); });
   buildColorSwatches("textColorSwatches", () => bubbleOptions.textColor, async (v) => { bubbleOptions.textColor = v; await saveBubbleOptions(); applyBubbleOptions(); });
+  buildColorSwatches("iconSwatches", () => bubbleOptions.iconColor, async (v) => { bubbleOptions.iconColor = v; await saveBubbleOptions(); applyBubbleOptions(); });
   buildFieldOutline();
   applyBubbleOptions();
   const bubbleViewEl = $("bubbleView");
@@ -1486,6 +1807,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     textColorInput.addEventListener("change", async () => { await saveBubbleOptions(); });
   }
+  const iconColorInput = $("iconColorInput");
+  if (iconColorInput) {
+    iconColorInput.addEventListener("input", () => {
+      bubbleOptions.iconColor = iconColorInput.value;
+      applyBubbleOptions();
+    });
+    iconColorInput.addEventListener("change", async () => { await saveBubbleOptions(); });
+  }
 
   /* Shadow — toggle + strength slider (live preview). */
   const shadowBtn = $("shadowBtn");
@@ -1536,6 +1865,33 @@ document.addEventListener("DOMContentLoaded", () => {
     applyBubbleOptions();
     flashSaved(pulseBtn);
   });
+
+  /* Scrollbar width + entry separation — tap to cycle. */
+  const scrollbarBtn = $("scrollbarBtn");
+  if (scrollbarBtn) scrollbarBtn.addEventListener("click", async () => {
+    bubbleOptions.scrollbar = SCROLLBAR_CYCLE[(SCROLLBAR_CYCLE.indexOf(bubbleOptions.scrollbar) + 1) % SCROLLBAR_CYCLE.length];
+    await saveBubbleOptions();
+    applyBubbleOptions();
+    flashSaved(scrollbarBtn);
+  });
+  const separationBtn = $("separationBtn");
+  if (separationBtn) separationBtn.addEventListener("click", async () => {
+    bubbleOptions.separation = SEPARATION_CYCLE[(SEPARATION_CYCLE.indexOf(bubbleOptions.separation) + 1) % SEPARATION_CYCLE.length];
+    await saveBubbleOptions();
+    applyBubbleOptions();
+    render();
+    flashSaved(separationBtn);
+  });
+
+  /* Tree / calendar toggle in the bubble header. */
+  const calendarViewBtn = $("calendarViewBtn");
+  if (calendarViewBtn) {
+    calendarViewBtn.innerHTML = CALENDAR_SVG;
+    calendarViewBtn.addEventListener("click", () => {
+      playTickSound();
+      setBubbleViewMode(bubbleViewMode === "calendar" ? "tree" : "calendar");
+    });
+  }
 
   /* Keyboard: hotkey capture first, then Esc / single-key shortcuts. */
   document.addEventListener("keydown", (e) => {
@@ -1614,6 +1970,10 @@ document.addEventListener("DOMContentLoaded", () => {
         calLastFetchAt = 0;
         if (calSetting.enabled) loadCalendarEvents(true);
         else { calEvents = []; recomputeEvents(); }
+      } else if (key === "hidden-events") {
+        const h = await window.sideshow.getHiddenEvents();
+        if (Array.isArray(h)) hiddenIds = new Set(h);
+        render();
       }
     } catch (e) { /* preview update skipped; the bubble still works */ }
   });

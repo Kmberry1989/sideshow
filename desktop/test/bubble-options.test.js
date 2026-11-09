@@ -18,6 +18,9 @@ test("defaults are the current look", () => {
   assert.equal(d.align, "left");
   assert.equal(d.pulse, true);
   assert.equal(d.textColor, null);
+  assert.equal(d.scrollbar, "slim");
+  assert.equal(d.iconColor, null);
+  assert.equal(d.separation, "bullets");
   // Name bold is true (the title is already bold); the rest normal.
   assert.equal(d.fieldStyles.n.bold, true);
   assert.equal(d.fieldStyles.n.italic, false);
@@ -46,6 +49,9 @@ test("normalization clamps and rejects bad values", () => {
   assert.equal(d.align, "left");
   assert.equal(d.pulse, true);
   assert.equal(d.textColor, null);
+  assert.equal(d.scrollbar, "slim");
+  assert.equal(d.iconColor, null);
+  assert.equal(d.separation, "bullets");
   assert.equal(d.fieldStyles.n.bold, false);
   assert.equal(d.fieldStyles.n.color, "#a44a24");
   assert.equal(d.fieldStyles.z, undefined);
@@ -71,6 +77,9 @@ test("valid values survive normalization", () => {
   assert.equal(d.align, "center");
   assert.equal(d.pulse, false);
   assert.equal(d.textColor, "#c9962e");
+  assert.equal(d.scrollbar, "slim");
+  assert.equal(d.iconColor, null);
+  assert.equal(d.separation, "bullets");
   assert.equal(d.fieldStyles.d.italic, true);
   assert.equal(d.fieldStyles.p.underline, true);
   assert.equal(d.fieldStyles.p.bold, true);
@@ -85,6 +94,24 @@ test("hexToRgb and rgba", () => {
   assert.equal(bo.hexToRgb("red"), null);
   assert.equal(bo.rgba("#2b2118", 0.5), "rgba(43, 33, 24, 0.5)");
   assert.equal(bo.rgba("nope", 0.5), null);
+});
+
+test("scrollbar, icon color and separation survive normalization; bad values fall back", () => {
+  const d = bo.normalizeBubbleOptions({
+    scrollbar: "standard", iconColor: "#4a6fa5", separation: "lines",
+  });
+  assert.equal(d.scrollbar, "standard");
+  assert.equal(d.iconColor, "#4a6fa5");
+  assert.equal(d.separation, "lines");
+  const bad = bo.normalizeBubbleOptions({
+    scrollbar: "wide", iconColor: "red", separation: "grid",
+  });
+  assert.equal(bad.scrollbar, "slim");
+  assert.equal(bad.iconColor, null);
+  assert.equal(bad.separation, "bullets");
+  assert.deepEqual(bo.SCROLLBAR_CYCLE, ["slim", "standard"]);
+  assert.deepEqual(bo.SEPARATION_CYCLE, ["bullets", "lines", "spacing"]);
+  assert.equal(bo.SEPARATION_LABELS.bullets, "Bullets");
 });
 
 test("readableInkFor keeps text readable on dark and light backgrounds", () => {

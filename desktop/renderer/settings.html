@@ -21,6 +21,7 @@
         <button type="button" class="settings-tab" data-tab="text" role="tab">Text</button>
         <button type="button" class="settings-tab" data-tab="summon" role="tab">Summon</button>
         <button type="button" class="settings-tab" data-tab="general" role="tab">General</button>
+        <button type="button" class="settings-tab" data-tab="events" role="tab">Events</button>
       </div>
       <div class="settings-body">
         <p id="settingsStatus" class="status"></p>
@@ -92,6 +93,19 @@
             <span class="setting-label">Gentle pulse</span>
             <button id="pulseBtn" type="button" class="btn plain setting-btn" aria-label="Gentle pulse on or off">On</button>
           </div>
+          <div class="setting">
+            <span class="setting-label">Scrollbar</span>
+            <button id="scrollbarBtn" type="button" class="btn plain setting-btn">Slim</button>
+          </div>
+          <div class="setting">
+            <span class="setting-label">Icons</span>
+            <span id="iconSwatches" class="swatches"></span>
+            <input id="iconColorInput" type="color" class="color-input" value="#2b2118" aria-label="Custom icon color" title="Custom color" />
+          </div>
+          <div class="setting">
+            <span class="setting-label">Separate entries</span>
+            <button id="separationBtn" type="button" class="btn plain setting-btn">Bullets</button>
+          </div>
         </div>
         <div class="settings-tab-panel" id="tab-text" hidden>
           <div class="setting">
@@ -151,6 +165,9 @@
             <p id="calendarPickerStatus" class="calendar-status"></p>
             <div id="calendarList" class="calendar-list"></div>
           </div>
+        </div>
+        <div class="settings-tab-panel" id="tab-events" hidden>
+          <div id="eventsList" class="events-list"></div>
         </div>
       </div>
     </div>
