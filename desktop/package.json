@@ -60,5 +60,5 @@
     "start": "npm run build && electron .",
     "test": "node --test test/fields.test.js test/summon.test.js test/calendar.test.js test/position.test.js test/bubble-options.test.js test/packaging.test.js test/settings-window.test.js test/calendar-view.test.js test/v019.test.js"
   },
-  "version": "0.1.8"
+  "version": "0.1.9"
 }
