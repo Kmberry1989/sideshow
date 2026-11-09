@@ -7,7 +7,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
-import { eventTitle, eventSubtitle, fieldValueForKey } from "./fields.js";
+import { eventTitle, eventWhen, eventMatches, fieldValueForKey } from "./fields.js";
 import { calendarEventToRecord, mergeEvents } from "./calendar.js";
 import {
   FIELD_KEYS, FIELD_LABELS, FONTS, FONT_LABELS, FONT_CYCLE,
@@ -35,6 +35,7 @@ let calPickerLoading = false;
 const CAL_FETCH_STALE_MS = 5 * 60 * 1000;
 let unsubscribe = null;
 let focusedEvent = null; /* the expanded event (accordion) */
+let searchQuery = ""; /* live search text from the header search bar */
 let capturingHotkey = false;
 let recordingGesture = false;
 let capturingDoubleTap = false;
@@ -477,7 +478,7 @@ function buildFieldOutline() {
     const clear = document.createElement("button");
     clear.type = "button";
     clear.className = "field-clear";
-    clear.textContent = "×";
+    clear.innerHTML = X_SVG;
     clear.title = "Use the global text color";
     clear.setAttribute("aria-label", "Use the global text color");
     clear.addEventListener("click", async () => {
@@ -573,6 +574,15 @@ const CONFIRM_SVG = '<svg class="bubble-confirm" viewBox="0 0 24 24" aria-hidden
 
 const COPY_SVG = '<svg class="copy-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
 
+/* Settings icons are SVG, never emoji. The sound / reminders buttons
+   swap between the on and off SVGs. */
+const ICON_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+const SOUND_ON_SVG = '<svg ' + ICON_ATTRS + '><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+const SOUND_OFF_SVG = '<svg ' + ICON_ATTRS + '><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>';
+const BELL_ON_SVG = '<svg ' + ICON_ATTRS + '><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
+const BELL_OFF_SVG = '<svg ' + ICON_ATTRS + '><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.63 13A17.89 17.89 0 0 1 18 8"/><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/><path d="M18 8a6 6 0 0 0-9.33-5"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+const X_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+
 function copyValue(value, bubbleEl) {
   if (!value) return;
   window.sideshow.copy(value).then(() => {
@@ -615,7 +625,8 @@ function render() {
      it (no drag) to toggle the focused event open/closed. */
   const root = document.createElement("button");
   root.type = "button";
-  root.className = "bubble root-bubble";
+  root.className = "bubble root-bubble pulse-item";
+  root.style.animationDelay = "0s";
   root.innerHTML = '<span class="root-text">Event Bank</span>';
   root.addEventListener("mousedown", onRootMouseDown);
   tree.appendChild(root);
@@ -627,7 +638,8 @@ function render() {
   if (!signedIn) {
     const signin = document.createElement("button");
     signin.type = "button";
-    signin.className = "bubble signin-bubble";
+    signin.className = "bubble signin-bubble pulse-item";
+    signin.style.animationDelay = "0.5s";
     signin.innerHTML = '<span class="value-text">Sign in</span>';
     signin.addEventListener("click", () => window.sideshow.signIn());
     tree.appendChild(signin);
@@ -638,7 +650,8 @@ function render() {
 
   if (!events.length) {
     const empty = document.createElement("div");
-    empty.className = "bubble empty-bubble";
+    empty.className = "bubble empty-bubble pulse-item";
+    empty.style.animationDelay = "0.5s";
     empty.textContent = "No saved events yet.";
     tree.appendChild(empty);
     setState("empty");
@@ -647,10 +660,26 @@ function render() {
   }
 
   setState("list");
-  events.forEach((ev) => {
+  /* Live search: the header search bar filters the event bubbles by
+     keyword (name, date, time, price, ages, host, location,
+     description). Empty search shows all events. */
+  const visible = searchQuery ? events.filter((ev) => eventMatches(ev, searchQuery)) : events;
+  if (!visible.length) {
+    const empty = document.createElement("div");
+    empty.className = "bubble empty-bubble pulse-item";
+    empty.style.animationDelay = "0.5s";
+    empty.textContent = "No matching events.";
+    tree.appendChild(empty);
+    reportContentHeight();
+    return;
+  }
+  visible.forEach((ev, evIndex) => {
     const isExpanded = focusedEvent && focusedEvent._id === ev._id;
     const item = document.createElement("div");
-    item.className = "event-branch" + (isExpanded ? " expanded" : "");
+    item.className = "event-branch pulse-item" + (isExpanded ? " expanded" : "");
+    /* Stagger: each event breathes a beat after the one before it
+       (root 0s, then 0.5s, 1.0s, …), a gentle wave down the tree. */
+    item.style.animationDelay = ((evIndex + 1) * 0.5) + "s";
 
     const btn = document.createElement("button");
     btn.type = "button";
@@ -660,13 +689,21 @@ function render() {
     const nameStyle = (bubbleOptions.fieldStyles && bubbleOptions.fieldStyles.n) || { bold: true };
     btn.className = "bubble event-bubble" + (nameStyle.bold === false ? " name-weight-base" : "");
     btn.setAttribute("aria-expanded", isExpanded ? "true" : "false");
-    const sub = eventSubtitle(ev);
+    const when = eventWhen(ev);
+    const meta = [ev.price, ev.ages, ev.host, ev.location].filter(Boolean);
     const nameCls = fieldStyleClasses("n");
     const nameColor = fieldStyleColor("n");
+    /* Hierarchy: Name (largest, bold) → Date + Time → Price / Ages /
+       Host / Location in a smaller secondary block. */
     btn.innerHTML =
+      '<span class="event-main">' +
       '<span class="event-title' + (nameCls ? " " + nameCls : "") + '"' +
       (nameColor ? ' style="color:' + nameColor + '"' : "") + ">" + escapeHtml(eventTitle(ev)) + "</span>" +
-      (sub ? '<span class="event-sub">' + escapeHtml(sub) + "</span>" : "") +
+      (when ? '<span class="event-when">' + escapeHtml(when) + "</span>" : "") +
+      (meta.length ? '<span class="event-meta">' + meta.map((m, i) =>
+        (i ? '<span class="event-meta-sep">·</span>' : "") +
+        '<span class="event-meta-item">' + escapeHtml(m) + "</span>").join("") + "</span>" : "") +
+      "</span>" +
       '<span class="expand-mark">' + (isExpanded ? "−" : "+") + "</span>";
     btn.addEventListener("click", () => {
       focusedEvent = isExpanded ? null : ev;
@@ -706,10 +743,12 @@ function render() {
    of the last child of the active scroll container (its rect is in
    window coordinates, so it is the content height whether the content
    is shorter or taller than the window), plus the container's bottom
-   padding. Clamped to the window range; the settings view is always
-   full height. Reports to main, which resizes the window. */
+   padding. There is no fixed cap here: the window takes all the room
+   its content needs, and main clamps it to the work area, so a tall
+   tree is never cropped. The settings view is always full height.
+   Reports to main, which resizes the window. */
 const PANEL_MIN_H = 140;
-const PANEL_MAX_H = 560;
+const PANEL_MAX_H = 560; /* default height when nothing is measurable */
 function measureContentHeight() {
   const view = currentView === "settings"
     ? document.querySelector(".settings-body")
@@ -717,7 +756,7 @@ function measureContentHeight() {
   if (!view || !view.lastElementChild) return PANEL_MAX_H;
   const bottom = view.lastElementChild.getBoundingClientRect().bottom;
   if (!Number.isFinite(bottom) || bottom <= 0) return PANEL_MAX_H;
-  return Math.max(PANEL_MIN_H, Math.min(PANEL_MAX_H, Math.ceil(bottom) + 16));
+  return Math.max(PANEL_MIN_H, Math.ceil(bottom) + 16);
 }
 function reportContentHeight() {
   try { window.sideshow.reportContentHeight(measureContentHeight()); } catch (e) { /* main keeps its height */ }
@@ -1035,7 +1074,7 @@ async function refreshSettingsUI() {
     const on = await window.sideshow.getSound();
     soundOn = !!on;
     const btn = $("soundBtn");
-    if (btn) btn.textContent = soundOn ? "🔊" : "🔇";
+    if (btn) btn.innerHTML = soundOn ? SOUND_ON_SVG : SOUND_OFF_SVG;
   } catch (e) { /* sound stays on */ }
   try {
     motionSetting = await window.sideshow.getMotion();
@@ -1046,7 +1085,7 @@ async function refreshSettingsUI() {
   try {
     remindersOn = await window.sideshow.getReminders();
     const btn = $("remindersBtn");
-    if (btn) btn.textContent = remindersOn ? "🔔" : "🔕";
+    if (btn) btn.innerHTML = remindersOn ? BELL_ON_SVG : BELL_OFF_SVG;
   } catch (e) { /* reminders stay on */ }
   try {
     accentSettingValue = await window.sideshow.getAccent();
@@ -1199,6 +1238,14 @@ document.addEventListener("DOMContentLoaded", () => {
   if (closeBtn) closeBtn.addEventListener("click", () => window.sideshow.hide());
   const settingsBtn = $("settingsBtn");
   if (settingsBtn) settingsBtn.addEventListener("click", () => { playTickSound(); showSettingsView(); });
+  /* Header search: typing filters the event bubbles live. The input
+     lives in the header, outside the tree, so re-rendering the tree
+     never steals its focus. */
+  const searchInput = $("searchInput");
+  if (searchInput) searchInput.addEventListener("input", () => {
+    searchQuery = searchInput.value;
+    render();
+  });
   const settingsBackBtn = $("settingsBackBtn");
   if (settingsBackBtn) settingsBackBtn.addEventListener("click", () => showBubbleView());
   const settingsCloseBtn = $("settingsCloseBtn");
@@ -1310,7 +1357,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (soundBtn) soundBtn.addEventListener("click", async () => {
     soundOn = !soundOn;
     try { await window.sideshow.setSound(soundOn); } catch (e) { /* stays local */ }
-    soundBtn.textContent = soundOn ? "🔊" : "🔇";
+    soundBtn.innerHTML = soundOn ? SOUND_ON_SVG : SOUND_OFF_SVG;
     if (soundOn) playCopySound();
   });
   const motionBtn = $("motionBtn");
@@ -1327,7 +1374,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (remindersBtn) remindersBtn.addEventListener("click", async () => {
     remindersOn = !remindersOn;
     try { await window.sideshow.setReminders(remindersOn); } catch (e) { /* stays local */ }
-    remindersBtn.textContent = remindersOn ? "🔔" : "🔕";
+    remindersBtn.innerHTML = remindersOn ? BELL_ON_SVG : BELL_OFF_SVG;
     flashSaved(remindersBtn);
     if (remindersOn) syncEventsToMain();
   });

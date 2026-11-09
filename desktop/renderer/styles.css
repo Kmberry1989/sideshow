@@ -47,11 +47,13 @@ body {
 .view { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
 .view[hidden] { display: none; }
 
-/* ---------- Bubble view: header (gear + close only) ---------- */
+/* ---------- Bubble view: header (gear + search + close) ---------- */
+/* Header icons are SVG, sized for an easy tap: gear 21px, close 24px,
+   in a 36px round button. The search bar sits between them. */
 .bubble-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   padding: 10px 12px 4px;
   flex: none;
 }
@@ -59,15 +61,56 @@ body {
   border: 1px solid var(--line);
   background: var(--bubble-fill);
   color: var(--ink-soft);
-  font-size: 16px;
   line-height: 1;
   cursor: pointer;
-  padding: 4px 8px;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border-radius: 999px;
   transition: color var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
 .bubble-header button:hover { color: var(--ink); transform: scale(1.08); }
-#settingsBtn { font-size: 14px; }
+.bubble-header button svg { display: block; }
+#settingsBtn svg { width: 21px; height: 21px; }
+#closeBtn svg { width: 24px; height: 24px; }
+/* Search: magnifying glass + text input. The input is a real text
+   field — it stays editable and selectable; the app's no-select /
+   no-magnifier rules do not apply to it. */
+.search-box {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: var(--bubble-fill);
+  border-radius: 999px;
+  padding: 4px 10px;
+  height: 36px;
+}
+.search-box svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--ink-soft);
+}
+.search-box input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: var(--ink);
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
 .status { margin: 0 14px 6px; font-size: 12.5px; color: var(--ink-soft); min-height: 0; }
 .status:empty { display: none; }
 
@@ -116,15 +159,30 @@ body {
 }
 .event-branch { display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 8px; max-width: 100%; }
 .event-bubble {
-  padding: 7px 14px;
+  padding: 8px 14px;
   font-size: 13.5px;
   max-width: 100%;
+  align-items: flex-start;
 }
-.event-bubble .event-title { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Event hierarchy: the Name is the most prominent (largest, bold),
+   then Date + Time, then Price / Ages / Host / Location in a smaller
+   secondary block. The text stacks in a column; the expand mark sits
+   to the right of it. */
+.event-bubble .event-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.event-bubble .event-title { font-size: 15px; font-weight: 700; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Name bold off: the title follows the global weight instead. */
 .event-bubble.name-weight-base .event-title { font-weight: var(--bubble-weight, 400); }
-.event-bubble .event-sub { color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft))); font-size: 12px; font-weight: var(--bubble-weight, 400); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.event-bubble .expand-mark { font-weight: 700; color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft))); margin-left: 2px; flex: none; }
+.event-bubble .event-when { color: var(--bubble-ink-user, var(--bubble-ink-auto, var(--ink))); font-size: 12.5px; font-weight: var(--bubble-weight, 400); line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.event-bubble .event-meta { display: flex; flex-wrap: wrap; column-gap: 6px; row-gap: 1px; color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft))); font-size: 11.5px; font-weight: var(--bubble-weight, 400); line-height: 1.35; }
+.event-bubble .event-meta-item { white-space: nowrap; }
+.event-bubble .event-meta-sep { white-space: nowrap; }
+.event-bubble .expand-mark { font-weight: 700; color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft))); margin-left: 8px; margin-top: 1px; flex: none; }
 .event-branch.expanded .event-bubble { border-color: var(--accent); }
 .value-branch {
   display: flex;
@@ -206,15 +264,21 @@ body {
 .align-middle .value-branch { margin: 8px 0 2px 18px; }
 
 /* ---------- Gentle pulse + inflate-open ---------- */
-/* Pulse: a slow ambient scale on the tree (a cloud breathing),
-   1.0 → 1.02 → 1.0 over 6 s. Reduced: subtler (1.01) and slower
-   (8 s). Off: no pulse. It lives on the tree, so it composes with
-   the copy pop (on the bubble) and the inflate (on the view). */
-@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
-@keyframes pulse-reduced { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.01); } }
-.motion-full #bubbleTree.pulse { animation: pulse 6s ease-in-out infinite; }
-.motion-reduced #bubbleTree.pulse { animation: pulse-reduced 8s ease-in-out infinite; animation-duration: 8s !important; }
-.motion-off #bubbleTree.pulse { animation: none; }
+/* Pulse: a soft, gentle breathing — 1.0 → 1.01 → 1.0 over 6 s, half
+   the old 1.02 emphasis. It is staggered per item: each top-level
+   item (root, each event branch) carries the same animation with a
+   small delay by its position (set inline by the renderer), so the
+   tree breathes in a gentle wave instead of all at once. Reduced:
+   subtler still (1.005) and slower (8 s). Off: no pulse. The pulse
+   class on the tree is the on/off toggle; the motion classes gate
+   whether it actually animates. It lives on the branch, so it
+   composes with the copy pop (on the value bubble) and the inflate
+   (on the view). */
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.01); } }
+@keyframes pulse-reduced { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.005); } }
+.motion-full #bubbleTree.pulse .pulse-item { animation: pulse 6s ease-in-out infinite; }
+.motion-reduced #bubbleTree.pulse .pulse-item { animation: pulse-reduced 8s ease-in-out infinite; animation-duration: 8s !important; }
+.motion-off #bubbleTree.pulse .pulse-item { animation: none; }
 /* Inflate: when the panel opens, the view grows from small to full
    size like a balloon — 0.7 → 1.0 over 250 ms, the app easing.
    Reduced: a subtler puff (0.92 → 1.0, 120 ms). Off: instant.
@@ -316,9 +380,13 @@ body {
 }
 .settings-header button {
   border: 0; background: none; color: var(--ink-soft);
-  font-size: 20px; line-height: 1; cursor: pointer; padding: 2px 6px;
+  line-height: 1; cursor: pointer;
+  width: 36px; height: 36px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0;
   transition: color var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
+.settings-header button svg { display: block; width: 24px; height: 24px; }
 .settings-header button:hover { color: var(--ink); transform: scale(1.08); }
 .settings-title { font-size: 15px; font-weight: 700; }
 .settings-body {
@@ -383,9 +451,16 @@ input[type="color"].color-input::-moz-color-swatch { border: none; border-radius
 .field-toggle.field-bold-toggle { font-weight: 700; }
 .field-clear {
   border: 0; background: none; color: var(--ink-soft);
-  font-size: 14px; line-height: 1; cursor: pointer; padding: 2px 4px;
+  line-height: 1; cursor: pointer; padding: 2px 4px;
+  display: inline-flex; align-items: center; justify-content: center;
 }
 .field-clear:hover { color: var(--ink); }
+.field-clear svg { display: block; width: 14px; height: 14px; }
+/* Sound / reminders are icon buttons (SVG, swapped by the renderer
+   for the off state); the small clear buttons are an SVG X too. */
+#soundBtn, #remindersBtn { display: inline-flex; align-items: center; justify-content: center; }
+#soundBtn svg, #remindersBtn svg { display: block; width: 18px; height: 18px; }
+.setting-btn.small svg { display: block; width: 14px; height: 14px; }
 .auth {
   display: flex;
   align-items: center;

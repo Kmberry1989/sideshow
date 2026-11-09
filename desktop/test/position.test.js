@@ -109,8 +109,10 @@ test("normalizePositionSetting: unknown mode falls back to cursor, bad custom is
   assert.deepEqual(pos.normalizePositionSetting({ mode: "custom", custom: { x: 120.6, y: 300 } }), { mode: "custom", custom: { x: 121, y: 300 } });
 });
 
-test("clampHeight: non-finite heights fall back to the minimum", () => {
+test("clampHeight: tall content grows to the work area (no fixed 560 cap)", () => {
   assert.equal(pos.clampHeight(undefined, 800), pos.PANEL_MIN_H);
-  assert.equal(pos.clampHeight(9999, 800), pos.PANEL_MAX_H);
+  assert.equal(pos.clampHeight(9999, 800), 800);
+  assert.equal(pos.clampHeight(1200, 800), 800);
+  assert.equal(pos.clampHeight(200, 800), 200);
   assert.equal(pos.clampHeight(50, 800), pos.PANEL_MIN_H);
 });

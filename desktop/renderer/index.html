@@ -10,8 +10,12 @@
     <!-- Main view: just the bubble. No settings, no chrome. -->
     <div id="bubbleView" class="view">
       <header class="bubble-header">
-        <button id="settingsBtn" type="button" aria-label="Settings">⚙</button>
-        <button id="closeBtn" type="button" aria-label="Close">×</button>
+        <button id="settingsBtn" type="button" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="searchInput" type="text" aria-label="Search events" autocomplete="off" autocapitalize="off" spellcheck="false" />
+        </div>
+        <button id="closeBtn" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </header>
       <p id="status" class="status"></p>
       <main id="bubbleTree" class="bubble-tree"></main>
@@ -25,9 +29,9 @@
     <!-- Settings view: every setting lives here, never in the bubble. -->
     <div id="settingsView" class="view settings-view" hidden>
       <header class="settings-header">
-        <button id="settingsBackBtn" type="button" aria-label="Back">←</button>
+        <button id="settingsBackBtn" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
         <span class="settings-title">Settings</span>
-        <button id="settingsCloseBtn" type="button" aria-label="Close">×</button>
+        <button id="settingsCloseBtn" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </header>
       <div class="settings-tabs" id="settingsTabs" role="tablist">
         <button type="button" class="settings-tab active" data-tab="position" role="tab">Position</button>
@@ -127,12 +131,12 @@
           <div class="setting">
             <span class="setting-label">Gesture</span>
             <button id="gestureBtn" type="button" class="btn plain setting-btn">None</button>
-            <button id="gestureClearBtn" type="button" class="btn plain setting-btn small" style="display:none" aria-label="Clear gesture">×</button>
+            <button id="gestureClearBtn" type="button" class="btn plain setting-btn small" style="display:none" aria-label="Clear gesture"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
           </div>
           <div class="setting">
             <span class="setting-label">Long-click</span>
             <button id="longclickBtn" type="button" class="btn plain setting-btn">None</button>
-            <button id="longclickClearBtn" type="button" class="btn plain setting-btn small" style="display:none" aria-label="Clear long-click">×</button>
+            <button id="longclickClearBtn" type="button" class="btn plain setting-btn small" style="display:none" aria-label="Clear long-click"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
           </div>
         </div>
         <div class="settings-tab-panel" id="tab-general" hidden>
@@ -143,7 +147,7 @@
           </div>
           <div class="setting">
             <span class="setting-label">Sound</span>
-            <button id="soundBtn" type="button" class="btn plain setting-btn" aria-label="Sound on or off">🔊</button>
+            <button id="soundBtn" type="button" class="btn plain setting-btn" aria-label="Sound on or off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>
           </div>
           <div class="setting">
             <span class="setting-label">Motion</span>
@@ -151,7 +155,7 @@
           </div>
           <div class="setting">
             <span class="setting-label">Reminders</span>
-            <button id="remindersBtn" type="button" class="btn plain setting-btn" aria-label="Reminders on or off">🔔</button>
+            <button id="remindersBtn" type="button" class="btn plain setting-btn" aria-label="Reminders on or off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></button>
           </div>
           <div class="setting">
             <span class="setting-label">Accent</span>

@@ -3,7 +3,7 @@
    use the same record shape Main Eventer saves. */
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { parseDateVal, parseTimeVal, fmtTime, fmtDateLong, eventChips, eventTitle, eventSubtitle, eventMatches } = require("../renderer/fields.js");
+const { parseDateVal, parseTimeVal, fmtTime, fmtDateLong, eventChips, eventTitle, eventSubtitle, eventWhen, eventMatches } = require("../renderer/fields.js");
 
 const full = {
   title: "Santa's Little Wheel Potters",
@@ -14,6 +14,7 @@ const full = {
   ages: "6-10",
   host: "Rochelle",
   location: "111 W Sycamore St, Kokomo",
+  description: "Paint a wheel-thrown pot with Rochelle.",
 };
 
 test("date and time formatting", () => {
@@ -50,10 +51,20 @@ test("eventTitle and eventSubtitle", () => {
   assert.equal(eventSubtitle({}), "");
 });
 
-test("eventMatches filters by title, host, or location", () => {
+test("eventMatches filters by title, host, location, time, date, or description", () => {
   assert.equal(eventMatches(full, "wheel"), true);
   assert.equal(eventMatches(full, "Rochelle"), true);
   assert.equal(eventMatches(full, "Kokomo"), true);
+  assert.equal(eventMatches(full, "10:00"), true);
+  assert.equal(eventMatches(full, "November"), true);
+  assert.equal(eventMatches(full, "wheel-thrown"), true);
   assert.equal(eventMatches(full, "turkey"), false);
   assert.equal(eventMatches(full, ""), true);
+});
+
+test("eventWhen shows date and time range", () => {
+  assert.equal(eventWhen(full), "Sat, Nov 21 · 10:00 AM – 11:30 AM");
+  assert.equal(eventWhen({ date: "2026-11-21" }), "Sat, Nov 21");
+  assert.equal(eventWhen({ startTime: "10:00" }), "10:00 AM");
+  assert.equal(eventWhen({}), "");
 });

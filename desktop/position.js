@@ -17,6 +17,10 @@
 
 const PANEL_W = 400;
 const PANEL_MIN_H = 140;
+/* PANEL_MAX_H is the window's starting height (the window is fitted
+   to its content after launch). It is NOT a cap: the window takes
+   all the room its content needs, up to the work area, so a tall
+   tree is never cropped. */
 const PANEL_MAX_H = 560;
 const CURSOR_GAP = 16;
 
@@ -36,9 +40,10 @@ const POSITION_LABELS = {
 };
 
 /* Clamp a content height into the window-height range, never taller
-   than the work area it has to fit in. */
+   than the work area it has to fit in. No fixed cap: a tall tree
+   grows the window to the work area instead of being cropped. */
 function clampHeight(h, boundsHeight) {
-  const cap = Math.min(PANEL_MAX_H, boundsHeight);
+  const cap = boundsHeight;
   const floor = Math.min(PANEL_MIN_H, cap);
   if (!Number.isFinite(h)) return floor;
   return Math.max(floor, Math.min(h, cap));

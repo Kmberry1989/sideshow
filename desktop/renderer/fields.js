@@ -104,13 +104,27 @@ function eventSubtitle(ev) {
   return parts.join(" · ");
 }
 
+/* Date + time range for the event bubble's second line, e.g.
+   "Sat, Nov 21 · 10:00 AM – 11:30 AM". */
+function eventWhen(ev) {
+  const d = parseDateVal(ev.date);
+  const parts = [];
+  if (d) parts.push(fmtDateShort(d));
+  const t = timeRange(ev);
+  if (t) parts.push(t);
+  return parts.join(" · ");
+}
+
 function eventMatches(ev, q) {
   if (!q) return true;
-  const hay = [ev.title, ev.host, ev.location, ev.date, ev.price, ev.ages]
+  const d = parseDateVal(ev.date);
+  const hay = [ev.title, ev.host, ev.location, ev.date, ev.price, ev.ages,
+    ev.description, timeRange(ev),
+    d ? fmtDateLong(d) : "", d ? fmtDateShort(d) : ""]
     .filter(Boolean).join(" ").toLowerCase();
   return hay.indexOf(q.toLowerCase()) !== -1;
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { parseDateVal, parseTimeVal, fmtTime, fmtDateLong, fmtDateShort, eventChips, eventTitle, eventSubtitle, eventMatches, timeRange, fieldValueForKey };
+  module.exports = { parseDateVal, parseTimeVal, fmtTime, fmtDateLong, fmtDateShort, eventChips, eventTitle, eventSubtitle, eventWhen, eventMatches, timeRange, fieldValueForKey };
 }
