@@ -11,8 +11,7 @@
       }
     },
     "files": [
-      "main.js",
-      "preload.js",
+      "*.js",
       "package.json",
       "firebase-config.json",
       "assets/**/*",
@@ -59,7 +58,7 @@
     "dist:win-native": "npm run build && electron-builder --win --dir && makensis installer.nsi",
     "pack": "npm run build && electron-packager . Sideshow --platform=win32,darwin --arch=x64 --out=dist --overwrite --icon=assets/icon",
     "start": "npm run build && electron .",
-    "test": "node --test test/fields.test.js test/summon.test.js test/calendar.test.js test/position.test.js test/bubble-options.test.js"
+    "test": "node --test test/fields.test.js test/summon.test.js test/calendar.test.js test/position.test.js test/bubble-options.test.js test/packaging.test.js"
   },
   "version": "0.1.7"
 }
