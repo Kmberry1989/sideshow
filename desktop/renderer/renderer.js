@@ -12,6 +12,7 @@ import { getAuth, GoogleAuthProvider, signInWithCredential, signOut, onAuthState
 import { getFirestore, collection, query, orderBy, limit, onSnapshot, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { eventTitle, eventWhen, eventMatches, fieldValueForKey, MONTHS } from "./fields.js";
 import { calendarEventToRecord, mergeEvents, monthGrid, groupEventsByDate } from "./calendar.js";
+import { classifyDragTarget, isDragMovement, shouldEngageDrag } from "./drag.js";
 import {
   FIELD_KEYS, FIELD_LABELS, FONTS, FONT_LABELS, FONT_CYCLE,
   WEIGHTS, WEIGHT_LABELS, WEIGHT_CYCLE,
@@ -259,6 +260,46 @@ function buildAccentSwatches() {
   });
 }
 
+/* ---------- one-tap preset themes ---------- */
+
+/* Shortcuts, not a new store: applying one sets the existing
+   settings (look, background, accent, text ink) so the live preview
+   and the existing persistence work exactly as for manual picks.
+   Colors come only from the existing swatch palette. Text ink is
+   left to auto (null) so it is computed from the preset background
+   and always reads — even if an explicit text color was picked
+   before, the preset clears it. */
+const THEME_PRESETS = [
+  { id: "studio", label: "Studio", appearance: "glass", bgColor: "#a44a24", accent: "#a44a24" },
+  { id: "dark", label: "Dark", appearance: "shaded", bgColor: "#2b2118", accent: "#a44a24" },
+  { id: "light", label: "Light", appearance: "glass", bgColor: "#ffffff", accent: "#a44a24" },
+];
+function buildPresetButtons() {
+  const wrap = $("presetBtns");
+  if (!wrap || wrap.childElementCount) return; /* built once */
+  THEME_PRESETS.forEach((p) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn plain setting-btn";
+    b.textContent = p.label;
+    b.setAttribute("aria-label", "Theme " + p.label);
+    b.addEventListener("click", async () => { await applyPreset(p); flashSaved(b); });
+    wrap.appendChild(b);
+  });
+}
+async function applyPreset(p) {
+  appearanceSetting = p.appearance;
+  try { await window.sideshow.setAppearance(p.appearance); } catch (e) { /* stays local */ }
+  accentSettingValue = p.accent;
+  try { await window.sideshow.setAccent(p.accent); } catch (e) { /* stays local */ }
+  bubbleOptions.bgColor = p.bgColor;
+  bubbleOptions.textColor = null; /* auto ink from the preset background */
+  await saveBubbleOptions();
+  applyAccent();
+  buildAccentSwatches();
+  applyBubbleOptions();
+}
+
 /* ---------- bubble appearance ---------- */
 
 /* Liquid Glass (frosted), Shaded (soft tint), Transparent (nearly
@@ -314,6 +355,7 @@ const COLOR_SWATCHES = [
   { value: "#4a6fa5", label: "Blue" },
   { value: "#7a4a6e", label: "Plum" },
   { value: "#2b2118", label: "Dark" },
+  { value: "#ffffff", label: "White" },
 ];
 
 async function saveBubbleOptions() {
@@ -903,14 +945,14 @@ function render() {
   if (focusedEvent && !visibleEvents().some((e) => e._id === focusedEvent._id)) focusedEvent = null;
   tree.innerHTML = "";
 
-  /* Root bubble — the Event Bank. Drag it to move the panel; click
-     it (no drag) to toggle the focused event open/closed. */
+  /* Root bubble — the Event Bank. Click it (no drag) to toggle the
+     focused event open/closed; drag from anywhere on the panel
+     (including this bubble) to move it. */
   const root = document.createElement("button");
   root.type = "button";
   root.className = "bubble root-bubble pulse-item";
   root.style.animationDelay = "0s";
   root.innerHTML = '<span class="root-text">Event Bank</span>';
-  root.addEventListener("mousedown", onRootMouseDown);
   tree.appendChild(root);
 
   const connector = document.createElement("div");
@@ -1073,20 +1115,73 @@ function reportContentHeight() {
   try { window.sideshow.reportContentHeight(measureContentHeight()); } catch (e) { /* main keeps its height */ }
 }
 
-/* ---------- root-bubble drag (the bubble is the drag handle) ---------- */
+/* ---------- drag from anywhere on the panel ---------- */
 
+/* A pointerdown anywhere on the panel starts a potential drag — root,
+   event/value bubbles, header buttons, calendar cells — using the
+   same 4px threshold and the same dragStart/dragMove/dragEnd IPC
+   path, so "Remember spot" keeps working. One path for mouse, touch,
+   and pen (Pointer Events); no separate touch handlers. Text inputs
+   are excluded so the header search box stays clickable and typeable;
+   the settings window is a normal window and never drags this way.
+   A drag must not also fire the click under it (copy, expand,
+   hide, open), so the click that follows a drag is swallowed; the
+   flag clears on the next pointerdown, which can only come after
+   that click would already have fired. A tap (pointerup without
+   movement) is a click: element handlers fire as normal.
+   pointercancel (the browser takes over for a scroll) aborts the
+   drag without the root toggle — a swipe that scrolls must not also
+   open or close an event. Only the pointer that started the drag
+   can move or end it, so a second finger never interferes. */
 let dragState = null;
-function onRootMouseDown(e) {
+let suppressClickAfterDrag = false;
+document.addEventListener("pointerdown", (e) => {
+  suppressClickAfterDrag = false;
+  if (IS_SETTINGS_WINDOW) return;
   if (e.button !== 0) return;
-  dragState = { startX: e.clientX, startY: e.clientY, dx: 0, dy: 0, moved: false, raf: null };
+  const info = classifyDragTarget(e.target);
+  if (!info.start) return;
+  dragState = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, dx: 0, dy: 0, moved: false, raf: null, fromRoot: info.fromRoot, inScrollArea: info.inScrollArea };
   window.sideshow.dragStart();
+  /* The root bubble keeps its old behavior (no focus steal); other
+     elements keep theirs (a value still focuses on click). */
+  if (info.fromRoot) e.preventDefault();
+});
+document.addEventListener("click", (e) => {
+  if (!suppressClickAfterDrag) return;
+  suppressClickAfterDrag = false;
+  e.stopPropagation();
   e.preventDefault();
-}
-document.addEventListener("mousemove", (e) => {
+}, true);
+function endPanelDrag(allowToggle) {
   if (!dragState) return;
+  const wasDrag = dragState.moved;
+  const fromRoot = dragState.fromRoot;
+  if (dragState.raf) cancelAnimationFrame(dragState.raf);
+  dragState = null;
+  window.sideshow.dragEnd(wasDrag);
+  if (wasDrag) suppressClickAfterDrag = true;
+  /* Click without a drag on the root bubble toggles the focused
+     event open/closed. Only the root does this — clicks elsewhere
+     already have their own handlers. A cancelled gesture (scroll
+     takeover) never toggles. */
+  else if (allowToggle && fromRoot) {
+    if (focusedEvent) { focusedEvent = null; render(); }
+    else if (events.length) { focusedEvent = events[0]; playTickSound(); render(); }
+  }
+}
+document.addEventListener("pointermove", (e) => {
+  if (!dragState || e.pointerId !== dragState.pointerId) return;
+  /* Button released outside the window: no pointerup arrives, so end
+     the drag here instead of moving the panel on plain hover. */
+  if (!(e.buttons & 1)) { endPanelDrag(true); return; }
   dragState.dx = e.clientX - dragState.startX;
   dragState.dy = e.clientY - dragState.startY;
-  if (Math.abs(dragState.dx) + Math.abs(dragState.dy) > 4) dragState.moved = true;
+  /* A touch swipe that starts in the tree or calendar and runs
+     vertical is a scroll, not a window drag — the browser cancels
+     the pointer stream for it, but the window must not nudge in
+     the meantime. Horizontal touch drags there still move it. */
+  if (isDragMovement(dragState.dx, dragState.dy) && shouldEngageDrag(e.pointerType, dragState.inScrollArea, dragState.dx, dragState.dy)) dragState.moved = true;
   if (dragState.moved && !dragState.raf) {
     dragState.raf = requestAnimationFrame(() => {
       dragState.raf = null;
@@ -1094,17 +1189,13 @@ document.addEventListener("mousemove", (e) => {
     });
   }
 });
-document.addEventListener("mouseup", () => {
-  if (!dragState) return;
-  const wasDrag = dragState.moved;
-  if (dragState.raf) cancelAnimationFrame(dragState.raf);
-  dragState = null;
-  window.sideshow.dragEnd(wasDrag);
-  /* Click without a drag toggles the focused event open/closed. */
-  if (!wasDrag) {
-    if (focusedEvent) { focusedEvent = null; render(); }
-    else if (events.length) { focusedEvent = events[0]; playTickSound(); render(); }
-  }
+document.addEventListener("pointerup", (e) => {
+  if (!dragState || e.pointerId !== dragState.pointerId) return;
+  endPanelDrag(true);
+});
+document.addEventListener("pointercancel", (e) => {
+  if (!dragState || e.pointerId !== dragState.pointerId) return;
+  endPanelDrag(false);
 });
 
 /* ---------- transparent window: click-through ---------- */
@@ -1113,7 +1204,7 @@ document.addEventListener("mouseup", () => {
    desktop (ignore=true, forwarded). Clicks on a bubble, a button, or
    the settings card must reach the app (ignore=false). Only send IPC
    when the state changes. */
-const CLICKABLE_SELECTOR = "button, input, select, .bubble, .value-bubble, .settings-view, a";
+const CLICKABLE_SELECTOR = "button, input, select, .bubble, .value-bubble, .settings-view, a, .bubble-header, .bubble-tree, .calendar-view";
 let ignoreMouseState = null;
 function updateIgnoreMouse(x, y) {
   /* The settings window is a normal window; the panel's
@@ -1512,6 +1603,7 @@ document.addEventListener("DOMContentLoaded", () => {
   applyMotion();
   applyAccent();
   buildAccentSwatches();
+  buildPresetButtons();
   applyAppearance();
   /* Bubble options: swatch rows + the per-field outline are built
      once from the defaults; refreshSettingsUI loads the saved

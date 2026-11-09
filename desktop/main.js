@@ -211,8 +211,8 @@ async function revokeRefreshToken() {
    sideshow:ignore-mouse) so clicks outside the bubble reach the
    desktop. The bubble stays open until dismissed (x button or
    re-summon); it no longer hides on click-away (v0.1.6). The
-   bubble itself is the hit area and the drag handle (the root
-   bubble, via sideshow:drag-start / sideshow:drag-move). */
+   bubble itself is the hit area and the drag handle (any spot on
+   the panel, via sideshow:drag-start / sideshow:drag-move). */
 function createPanel() {
   panel = new BrowserWindow({
     width: 400,
@@ -885,9 +885,9 @@ ipcMain.handle("sideshow:ignore-mouse", (_e, ignore) => {
   return true;
 });
 
-/* Custom drag: the root bubble is the drag handle. The renderer
-   sends the window position at drag start, then deltas as the
-   pointer moves. A click without a move is a click, not a drag. */
+/* Custom drag: any spot on the panel is the drag handle. The
+   renderer sends the window position at drag start, then deltas as
+   the pointer moves. A click without a move is a click, not a drag. */
 let dragStartPos = null;
 ipcMain.handle("sideshow:drag-start", () => {
   dragStartPos = panel ? panel.getPosition() : null;

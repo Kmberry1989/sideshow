@@ -31,6 +31,9 @@
   }
 }
 * { box-sizing: border-box; }
+/* Touch: taps fire without the tap delay, and no long-press callout
+   or magnifier is ever offered (standing rule). */
+button, input, select, a { touch-action: manipulation; }
 html, body { margin: 0; padding: 0; background: transparent; }
 body {
   color: var(--ink);
@@ -43,6 +46,7 @@ body {
   overflow: hidden;
   -webkit-user-select: none;
   user-select: none;
+  -webkit-touch-callout: none;
 }
 .view { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
 .view[hidden] { display: none; }
@@ -56,6 +60,9 @@ body {
   gap: 8px;
   padding: 10px 12px 4px;
   flex: none;
+  /* The header never scrolls, so a finger drag from here always
+     moves the window (no scroll takeover, no pointercancel). */
+  touch-action: none;
 }
 .bubble-header button {
   border: 1px solid var(--line);
@@ -125,6 +132,10 @@ body {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  /* A vertical finger swipe scrolls this list natively; the drag
+     code aborts on the pointercancel that follows, so the swipe
+     scrolls instead of moving the window. */
+  touch-action: pan-y;
   /* Mono is the current bubble type; the font option swaps it. */
   font-family: var(--bubble-font, ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace);
   /* Firefox scrollbar: thin + accent thumb, transparent track. */
@@ -255,16 +266,18 @@ body {
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 22px;
-  height: 22px;
-  padding: 0;
+  /* 34px hit area for a fingertip (was 22px); the 15px eye itself
+     is unchanged. The negative margins keep the layout footprint
+     exactly where it was (22px + 2px left, 1px top). */
+  width: 34px;
+  height: 34px;
+  padding: 6px;
+  margin: -5px -6px -6px -4px;
   border: 0;
   background: none;
   color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft)));
   border-radius: 999px;
   cursor: pointer;
-  margin-left: 2px;
-  margin-top: 1px;
 }
 .eye-btn:hover { color: var(--bubble-ink-user, var(--bubble-ink-auto, var(--ink))); }
 .eye-btn svg { width: 15px; height: 15px; display: block; }
@@ -278,6 +291,18 @@ body {
   overflow-x: hidden;
   padding: 4px 14px 16px;
   min-height: 0;
+  /* A vertical finger swipe scrolls the month natively; the drag
+     code aborts on the pointercancel that follows, so the swipe
+     scrolls instead of moving the window. */
+  touch-action: pan-y;
+  /* The grid has a backdrop like a bubble — the same fill the
+     Appearance background color + theme + transparency slider
+     already control, so no new setting is needed. Pick a Background
+     color (or a non-Clear look) and the calendar stops being
+     see-through. */
+  background: var(--bubble-fill);
+  border: 1.5px solid var(--bubble-border-user, var(--bubble-border));
+  border-radius: var(--corner-radius, 32px);
   font-family: var(--bubble-font, ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace);
   scrollbar-width: thin;
   scrollbar-color: var(--accent) transparent;
@@ -541,6 +566,7 @@ body.settings-window .settings-view {
   flex-direction: column;
   gap: 12px;
   min-height: 0;
+  touch-action: pan-y;
 }
 .settings-body .status { margin: 0; }
 /* Settings tabs: just the tab names, no extra chrome. The active
