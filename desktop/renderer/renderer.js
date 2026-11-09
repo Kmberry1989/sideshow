@@ -1686,6 +1686,8 @@ document.addEventListener("DOMContentLoaded", () => {
     flashSaved(remindersBtn);
     if (remindersOn) syncEventsToMain();
   });
+  const helpBtn = $("helpBtn");
+  if (helpBtn) helpBtn.addEventListener("click", () => window.sideshow.openHelp());
 
   /* Position — tap to cycle where the bubble opens. "Remember spot"
      opens where the bubble was last dragged to (drag it in the bubble

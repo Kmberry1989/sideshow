@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sideshow Help</title>
+<style>
+  :root {
+    --ink: #2b2118;
+    --ink-soft: #6f5d4c;
+    --line: #e3d5c3;
+    --surface: #fbf6ee;
+    --card: #fffdf8;
+    --accent: #a44a24;
+    --accent-soft: #f3e2d7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    background: var(--surface);
+    line-height: 1.55;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 40px 20px 80px; }
+  header { border-bottom: 2px solid var(--accent); padding-bottom: 20px; margin-bottom: 8px; }
+  h1 { margin: 0 0 6px; font-size: 32px; line-height: 1.2; }
+  .sub { margin: 0; color: var(--ink-soft); font-size: 17px; }
+  .version { display: inline-block; margin-top: 12px; padding: 2px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; color: var(--ink-soft); background: var(--card); }
+  nav { margin: 24px 0 8px; }
+  nav ul { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 32px; }
+  nav li { margin: 2px 0; break-inside: avoid; }
+  nav a { color: var(--accent); text-decoration: none; }
+  nav a:hover { text-decoration: underline; }
+  h2 { margin: 40px 0 8px; font-size: 22px; padding-top: 8px; border-top: 1px solid var(--line); }
+  h3 { margin: 24px 0 6px; font-size: 17px; }
+  p { margin: 8px 0; }
+  ul, ol { margin: 8px 0; padding-left: 24px; }
+  li { margin: 4px 0; }
+  code, kbd {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9em;
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 6px;
+  }
+  kbd { background: var(--card); font-weight: 600; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; background: var(--card); }
+  th, td { text-align: left; padding: 8px 12px; border: 1px solid var(--line); font-size: 15px; }
+  th { background: var(--accent-soft); }
+  .note {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 16px 0;
+  }
+  .note p { margin: 0; }
+  footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: 14px; }
+  @media (max-width: 560px) { nav ul { columns: 1; } h1 { font-size: 26px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Sideshow Help</h1>
+  <p class="sub">A floating overlay that recalls your saved event details anywhere on your system. Summon it, find the event, click a value to copy it, paste it wherever you are working.</p>
+  <span class="version">Sideshow v0.1.9</span>
+</header>
+
+<nav aria-label="Contents">
+  <ul>
+    <li><a href="#what-it-is">What Sideshow is</a></li>
+    <li><a href="#summoning">Summoning it</a></li>
+    <li><a href="#bubble">The bubble</a></li>
+    <li><a href="#keyboard">Keyboard shortcuts</a></li>
+    <li><a href="#calendar-view">Calendar view</a></li>
+    <li><a href="#settings">Settings window</a></li>
+    <li><a href="#position">Position</a></li>
+    <li><a href="#appearance">Appearance</a></li>
+    <li><a href="#text">Text</a></li>
+    <li><a href="#summon">Summon</a></li>
+    <li><a href="#general">General</a></li>
+    <li><a href="#events-tab">Events</a></li>
+    <li><a href="#google-calendar">Google Calendar</a></li>
+    <li><a href="#sign-in">Signing in</a></li>
+    <li><a href="#reminders">Reminders, sound, motion</a></li>
+    <li><a href="#installing">Installing &amp; updating</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+  </ul>
+</nav>
+
+<h2 id="what-it-is">What Sideshow is</h2>
+<p>Sideshow is a small overlay that sits hidden until you call it up. It shows the events saved in Main Eventer — the event bank — alongside events from your Google Calendar. Each event opens into its details (name, date, time, price, ages, host, location). Click any detail and it is copied to the clipboard, ready to paste into a design, a post, or a message.</p>
+<p>The overlay stays on top of other windows, and it stays open until you dismiss it. It never hides on its own when you click away.</p>
+<p>Sideshow runs on Windows and Mac. There is also an iOS keyboard in the same project, which is parked — it needs a paid Apple Developer account.</p>
+
+<h2 id="summoning">Summoning it</h2>
+<p>Any of these call the bubble up — or hide it again if it is already showing:</p>
+<ul>
+  <li><strong>Double-tap a key</strong> — double-tap <kbd>Shift</kbd> by default. You can pick a different key in Settings &gt; Summon.</li>
+  <li><strong>Hotkey</strong> — <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> by default (on a Mac: <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd>). Change it in Settings &gt; Summon.</li>
+  <li><strong>Mouse gesture</strong> — draw a gesture with the mouse, if you have recorded one in Settings &gt; Summon.</li>
+  <li><strong>Long-click</strong> — press and hold a mouse button for the length you recorded, if you have set one up in Settings &gt; Summon.</li>
+  <li><strong>Tray icon</strong> — click the Sideshow tent icon in the taskbar (Windows) or menu bar (Mac) once to toggle it, or double-click it. Right-click the icon for the menu: Show Sideshow, Sign in, Help, Quit.</li>
+</ul>
+<p>The bubble opens where your Position setting says it should — next to the cursor by default. Drag the Event Bank bubble at the top to move it; with Position set to Remember spot, it opens where you left it.</p>
+
+<h2 id="bubble">The bubble</h2>
+<p>The header has four controls, left to right: the gear (opens Settings), the search box, the calendar view toggle, and the close button (hides the bubble).</p>
+<h3>Event Bank</h3>
+<p>The first bubble is the Event Bank — the root of the tree. It is also the drag handle for the whole overlay. Clicking it (without dragging) opens or closes the currently focused event.</p>
+<h3>Events</h3>
+<p>Each event shows its name in large bold text, then the date and time range, then price, ages, host, and location in a smaller block separated by dots. Click an event to expand it into its value bubbles; click it again to collapse it.</p>
+<p>Each value bubble shows one detail. Click it and the detail is copied — a checkmark draws itself and a soft sound plays. The value bubbles are, in order: name, date, time range, price, ages, host, location. Only details the event actually has are shown.</p>
+<h3>Hiding events</h3>
+<p>Every event has an eye icon. Click it to hide that event: it stays saved in the bank, but it no longer appears in the bubble, the calendar view, the badge count, or reminders. Click the eye again — in the bubble or in Settings &gt; Events — to show it again.</p>
+<h3>Search</h3>
+<p>Type in the search box to filter the events live. It matches name, date, time, price, ages, host, location, and description. If nothing matches, the bubble says “No matching events.”</p>
+<h3>Hover</h3>
+<p>The entry under your cursor grows slightly while the others shrink a little, like the macOS Dock. This only applies when Motion is set to Full.</p>
+
+<h2 id="keyboard">Keyboard shortcuts</h2>
+<p>With an event expanded, single keys copy that event's details. The key for each detail is shown as a small badge after the value.</p>
+<table>
+  <thead><tr><th>Key</th><th>Copies</th></tr></thead>
+  <tbody>
+    <tr><td><kbd>N</kbd></td><td>Name</td></tr>
+    <tr><td><kbd>D</kbd></td><td>Date</td></tr>
+    <tr><td><kbd>T</kbd></td><td>Time range</td></tr>
+    <tr><td><kbd>P</kbd></td><td>Price</td></tr>
+    <tr><td><kbd>A</kbd></td><td>Ages</td></tr>
+    <tr><td><kbd>H</kbd></td><td>Host</td></tr>
+    <tr><td><kbd>L</kbd></td><td>Location</td></tr>
+  </tbody>
+</table>
+<p>Press <kbd>Esc</kbd> in the bubble to close it. In the Settings window, <kbd>Esc</kbd> closes Settings instead.</p>
+
+<h2 id="calendar-view">Calendar view</h2>
+<p>The calendar button in the header switches the bubble between the tree list and a month grid. The grid shows every event on the date it happens; events that last more than one day sit on their start date, and events with no date stay in the tree only.</p>
+<p>Use the arrows to move between months, or click the month label to jump back to this month. Click an entry on a date and the bubble switches back to the tree with that event's branch open.</p>
+
+<h2 id="settings">Settings window</h2>
+<p>Click the gear in the bubble header to open Settings in its own window — a normal framed window, 480 by 700, centered on the display with your cursor. While it is open, the bubble stays up beside it as a live preview: change a look, a color, or a size in Settings and the bubble updates right away, no reload.</p>
+<p>When you close Settings, the bubble goes back to how it was before you opened it: hidden again if it was hidden, left visible if it was visible.</p>
+<p>Settings has six tabs: Position, Appearance, Text, Summon, General, Events. Everything in Settings is optional — summoning, listing events, and clicking to copy all work with everything off or at its defaults.</p>
+
+<h2 id="position">Position</h2>
+<p>The Position button cycles through where the bubble opens:</p>
+<ul>
+  <li><strong>Follow cursor</strong> (default) — opens next to the pointer, on the display you are using.</li>
+  <li><strong>Top-left / Top-right / Bottom-left / Bottom-right</strong> — a fixed corner of the display with the cursor.</li>
+  <li><strong>Center</strong> — the middle of the display with the cursor.</li>
+  <li><strong>Remember spot</strong> — opens where you last dragged it.</li>
+</ul>
+<p>The bubble's height always fits its content, so it never lands far away from the pointer.</p>
+
+<h2 id="appearance">Appearance</h2>
+<table>
+  <thead><tr><th>Setting</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td>Look</td><td>Glass (Liquid Glass, frosted — default), Shaded (soft tint), or Clear (nearly transparent).</td></tr>
+    <tr><td>See-through</td><td>Transparency slider, 0–100. Default 50.</td></tr>
+    <tr><td>Scale</td><td>Bubble size, 80–150%. Default 100%.</td></tr>
+    <tr><td>Font</td><td>Mono (default), System, Serif, or Rounded.</td></tr>
+    <tr><td>Weight</td><td>Regular (400), Medium (500), or Bold (700).</td></tr>
+    <tr><td>Border</td><td>Border color — swatches or a custom color.</td></tr>
+    <tr><td>Shadow</td><td>On or off, with a strength slider, 0–100. Default on at 40.</td></tr>
+    <tr><td>Background</td><td>Background color — swatches or a custom color.</td></tr>
+    <tr><td>Corners</td><td>Smooth, Jagged, or Right angle, with a roundness slider, 0–32 px. Default Smooth at 32 px.</td></tr>
+    <tr><td>Branches</td><td>How the tree lines up: Left (default), Right, Middle, or Center.</td></tr>
+    <tr><td>Gentle pulse</td><td>A soft breathing animation on the bubbles. On by default.</td></tr>
+    <tr><td>Scrollbar</td><td>Slim (6 px, default) or Standard (12 px). The scrollbar thumb takes the accent color; the track is transparent.</td></tr>
+    <tr><td>Icons</td><td>Color for the header icons — gear, magnifier, close. Default is the theme ink; pick a custom color to override it.</td></tr>
+    <tr><td>Separate entries</td><td>How events are set apart: Bullets (small dots — default), Lines (a thin rule between entries), or Spacing (more breathing room).</td></tr>
+  </tbody>
+</table>
+
+<h2 id="text">Text</h2>
+<p><strong>Text color</strong> sets the overall text color for the bubble, with swatches or a custom color. Leaving it unset uses the automatic ink, picked for readability against your background.</p>
+<p>Below that, each field — Name, Date, Time, Price, Ages, Host, Location — has its own Italic, Underline, and Bold toggles plus its own color. Name is bold by default; turning its Bold off drops the title to the global weight.</p>
+
+<h2 id="summon">Summon</h2>
+<table>
+  <thead><tr><th>Setting</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td>Hotkey</td><td>The global keyboard shortcut. Default <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> on Mac). Click it, then press the keys you want.</td></tr>
+    <tr><td>Double-tap</td><td>The key to double-tap to summon. Default <kbd>Shift</kbd>.</td></tr>
+    <tr><td>Gesture</td><td>Record a mouse gesture to summon. Click the button, then draw the gesture. The X clears it.</td></tr>
+    <tr><td>Long-click</td><td>Summon by pressing and holding a mouse button. Click the button, then hold the button for the length you want. The X clears it.</td></tr>
+  </tbody>
+</table>
+<p>If several summon methods fire on one action — for example a long hold that also matches the gesture — Sideshow ignores the second one within a short window, so the bubble does not open and immediately close again.</p>
+
+<h2 id="general">General</h2>
+<p><strong>Sign in / Sign out.</strong> See <a href="#sign-in">Signing in</a>.</p>
+<p><strong>Sound.</strong> Soft bubble and pop sounds when the panel opens, closes, and copies. On by default.</p>
+<p><strong>Motion.</strong> Full, Reduced, or Off. When you have not chosen, it follows your operating system's reduced-motion preference. Reduced softens the pulse; Off turns the pulse, the open animation, and the hover magnification off.</p>
+<p><strong>Reminders.</strong> On by default. Sideshow sends a system notification for each event twice: one day before it starts, and one hour before. The badge on the tray icon (and the Mac dock) counts upcoming events. Reminders and the badge work independently — either can be on without the other.</p>
+<p><strong>Accent.</strong> One color for the copy confirmation and the interface accents. Default follows the platform (blue on Mac, green on Windows), or pick Terracotta, Clay, Gold, Green, Teal, Blue, or Plum. Terracotta is the studio brand color.</p>
+<p><strong>Google Calendar.</strong> See <a href="#google-calendar">Google Calendar</a>.</p>
+<p><strong>Help.</strong> A link to this page.</p>
+
+<h2 id="events-tab">Events</h2>
+<p>The Events tab lists every saved event in the bank. Each row has its eye (hide or show it) and, for Main Eventer events, an edit form: name, date, start and end time, price, ages, host, and location. Saving writes the change back to the saved-event bank.</p>
+<p>Google Calendar events appear in the list with their eye only — they are read-only here. To change a calendar event, edit it in Google Calendar.</p>
+<p>Hidden events stay in the bank and in this list; they are only hidden from the bubble, the calendar view, the badge, and reminders.</p>
+
+<h2 id="google-calendar">Google Calendar</h2>
+<p>Turn on <strong>Google Calendar</strong> in Settings &gt; General to show events from your Google Calendars in the bubble, next to the Main Eventer events. A picker appears below the toggle: tick the calendars you want, each shown with its color dot and “(primary)” on your main calendar.</p>
+<p>How it works:</p>
+<ul>
+  <li>Sideshow reads your calendars at most every 5 minutes — when the bubble opens if the last check is stale, and immediately when you change the toggle or your selection. It never polls in the background.</li>
+  <li>If a calendar event matches a Main Eventer event — same title, same date, same start time — the Main Eventer record wins, so you never see the same event twice. The Main Eventer record is the one that carries price, ages, and host.</li>
+  <li>Price, ages, and host are only read from a calendar event's description when it carries the exact lines Main Eventer writes when it pushes an event to Google.</li>
+  <li>Signing in again is required before calendar events appear: the sign-in asks Google for read-only calendar access as well as your account.</li>
+</ul>
+
+<h2 id="sign-in">Signing in</h2>
+<p>Sign in with Google in Settings &gt; General, or from the tray menu. The sign-in opens in your system browser and comes back to Sideshow on its own.</p>
+<p>Only three Google accounts can sign in: Kyle's, Rochelle's, and the studio's media account (<code>media@firedartsstudio.com</code>). Signing in with any other account shows “That Google account is not on the studio list.”</p>
+<p>On Windows, the first sign-in shows Google's unverified-app warning, because the app is not verified with Google yet. Click <strong>Advanced</strong>, then <strong>Go to project-369187068047 (unsafe)</strong>, then <strong>Continue</strong>.</p>
+<p>Signing out removes the saved sign-in from the app.</p>
+
+<h2 id="reminders">Reminders, sound, motion</h2>
+<p>See <a href="#general">General</a>: Reminders are on by default (notifications one day and one hour before each event), Sound is on by default, and Motion follows your operating system unless you pick Full, Reduced, or Off.</p>
+
+<h2 id="installing">Installing &amp; updating</h2>
+<h3>Windows</h3>
+<p>Download the installer (<code>Sideshow.Setup.&lt;version&gt;.exe</code>) from the <a href="https://github.com/Kmberry1989/sideshow/releases">Sideshow releases page</a> and run it. <strong>Quit Sideshow completely before installing or updating</strong> — Windows locks the app's files while it is running, so an install over a running copy will fail. The portable zip (<code>Sideshow-win32-x64.zip</code>) needs no install: unzip it and run <code>Sideshow.exe</code>.</p>
+<h3>Mac</h3>
+<p>Download <code>Sideshow-mac-x64.zip</code> from the releases page, unzip it, and drag Sideshow to Applications. The first time, Control-click Sideshow, choose Open, then Open again — macOS blocks apps from outside the App Store on a plain double-click. After that, double-clicking works. Sideshow lives in the menu bar; it has no dock icon.</p>
+<h3>Linux</h3>
+<p>Download <code>Sideshow-linux-x64.zip</code> from the releases page, unzip it, and run the Sideshow executable.</p>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3>The bubble does not appear</h3>
+<p>Check the tray icon is there — the tent in the taskbar (Windows) or menu bar (Mac). Click it once to toggle the bubble. If the app is not running at all, start it from the Start menu, Applications, or the unzipped folder.</p>
+<h3>“Sign in again to allow Calendar access.”</h3>
+<p>Your saved sign-in predates calendar access. Sign out, then sign in again — the new sign-in asks Google for read-only calendar access.</p>
+<h3>Calendar events do not show</h3>
+<p>Check the Google Calendar toggle is on in Settings &gt; General, and that the right calendar is ticked in the picker below it. The Fired Arts workshops live on the “Admin-Fired Arts Studio” calendar.</p>
+<h3>“That Google account is not on the studio list.”</h3>
+<p>Only the three studio accounts can sign in. Switch to Kyle's, Rochelle's, or the media account.</p>
+<h3>“Sign-in failed.”</h3>
+<p>The sign-in did not complete. Try again, and check the browser window that opened — the sign-in happens there, and closing it early cancels it.</p>
+
+<footer>
+  <p>Sideshow v0.1.9 — a companion to Main Eventer for Fired Arts Studio. The event bank is Main Eventer's saved events; Google Calendar events are read from your Google account.</p>
+</footer>
+</div>
+</body>
+</html>

@@ -15,6 +15,8 @@ const bubbleOptions = require("./bubble-options.js");
 
 const DEFAULT_HOTKEY = "CommandOrControl+Shift+E";
 const OAUTH_PORT = 53682;
+/* Help page: GitHub Pages serving docs/ from main. */
+const HELP_URL = "https://kmberry1989.github.io/sideshow/";
 const TOKEN_FILE = "sideshow-token.json";
 const SETTINGS_FILE = "sideshow-settings.json";
 
@@ -478,6 +480,7 @@ function createTray() {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: "Show Sideshow", click: togglePanel },
     { label: "Sign in", click: () => { togglePanel(); startSignIn(); } },
+    { label: "Help", click: () => { shell.openExternal(HELP_URL); } },
     { type: "separator" },
     { label: "Quit", click: () => app.quit() },
   ]));
@@ -868,6 +871,7 @@ ipcMain.handle("sideshow:copy", (_e, text) => {
 ipcMain.handle("sideshow:hide", () => { hidePanel(); return true; });
 
 ipcMain.handle("sideshow:open-settings", () => { openSettingsWindow(); return true; });
+ipcMain.handle("sideshow:open-help", () => { shell.openExternal(HELP_URL); return true; });
 
 ipcMain.handle("sideshow:close-settings", () => { closeSettingsWindow(); return true; });
 
