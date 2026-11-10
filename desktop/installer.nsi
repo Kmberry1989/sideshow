@@ -12,7 +12,7 @@
 !include "FileFunc.nsh"
 
 Name "Sideshow"
-OutFile "dist/Sideshow Setup 0.1.9.exe"
+OutFile "dist/Sideshow Setup 0.1.10.exe"
 InstallDir "$LOCALAPPDATA\Programs\Sideshow"
 InstallDirRegKey HKCU "Software\Sideshow" "InstallDir"
 RequestExecutionLevel user
