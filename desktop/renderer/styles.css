@@ -138,17 +138,21 @@ body {
   touch-action: pan-y;
   /* Mono is the current bubble type; the font option swaps it. */
   font-family: var(--bubble-font, ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace);
-  /* Firefox scrollbar: thin + accent thumb, transparent track. */
+  /* Firefox scrollbar: thin + accent thumb, transparent track. The
+     thumb color/shape come from --scrollbar-thumb /
+     --scrollbar-radius (Appearance); unset, they fall back to the
+     accent and fully round, the current look. */
   scrollbar-width: thin;
-  scrollbar-color: var(--accent) transparent;
+  scrollbar-color: var(--scrollbar-thumb, var(--accent)) transparent;
 }
 .scrollbar-standard .bubble-tree, .scrollbar-standard .settings-body { scrollbar-width: auto; }
-/* Themed scrollbar (Chromium): accent thumb, transparent track,
-   rounded. Width comes from --scroll-w (slim 6px / standard 12px). */
+/* Themed scrollbar (Chromium): thumb, transparent track. Width
+   comes from --scroll-w (slim 6px / standard 12px). Applies to the
+   tree, the settings scroll areas, and the calendar/week views. */
 .scrollbar-slim { --scroll-w: 6px; }
 .scrollbar-standard { --scroll-w: 12px; }
 .bubble-tree::-webkit-scrollbar, .settings-body::-webkit-scrollbar { width: var(--scroll-w, 6px); }
-.bubble-tree::-webkit-scrollbar-thumb, .settings-body::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 999px; }
+.bubble-tree::-webkit-scrollbar-thumb, .settings-body::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb, var(--accent)); border-radius: var(--scrollbar-radius, 999px); }
 .bubble-tree::-webkit-scrollbar-track, .settings-body::-webkit-scrollbar-track { background: transparent; }
 .bubble-tree[hidden], .calendar-view[hidden] { display: none; }
 .bubble {
@@ -291,6 +295,12 @@ body {
   overflow-x: hidden;
   padding: 4px 14px 16px;
   min-height: 0;
+  /* The border sits 2px inside the window frame on all four sides:
+     the outermost pixel of a transparent window can be lost on some
+     platforms, which took the right and bottom border lines with it
+     (the corners, curving inward, still showed). Inset, all four
+     lines render inside the frame. */
+  margin: 2px;
   /* A vertical finger swipe scrolls the month natively; the drag
      code aborts on the pointercancel that follows, so the swipe
      scrolls instead of moving the window. */
@@ -305,10 +315,10 @@ body {
   border-radius: var(--corner-radius, 32px);
   font-family: var(--bubble-font, ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace);
   scrollbar-width: thin;
-  scrollbar-color: var(--accent) transparent;
+  scrollbar-color: var(--scrollbar-thumb, var(--accent)) transparent;
 }
 .calendar-view::-webkit-scrollbar { width: var(--scroll-w, 6px); }
-.calendar-view::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 999px; }
+.calendar-view::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb, var(--accent)); border-radius: var(--scrollbar-radius, 999px); }
 .calendar-view::-webkit-scrollbar-track { background: transparent; }
 .cal-head { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
 .cal-nav {
@@ -365,6 +375,55 @@ body {
 }
 .cal-event:hover { border-color: var(--accent); }
 
+/* ---------- Week view (journal) ---------- */
+/* A vertical list of the week's 7 days, one section per day: a date
+   heading, then that day's events as rows (time + name, price /
+   location where the event has them). Days with no events show just
+   the heading. Same backdrop and border as the month grid (the
+   week view shares the calendar-view class). */
+.week-day { margin-bottom: 10px; }
+.week-day-head {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--bubble-ink-user, var(--bubble-ink-auto, var(--ink)));
+  padding: 2px 2px 4px;
+}
+.week-day.week-today .week-day-head { color: var(--accent); }
+.week-event {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--bubble-border);
+  background: var(--bubble-fill);
+  color: var(--bubble-ink-user, var(--bubble-ink-auto, var(--ink)));
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin-bottom: 4px;
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+.week-event:hover { border-color: var(--accent); }
+.week-time {
+  font-weight: 700;
+  color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft)));
+  white-space: nowrap;
+}
+.week-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.week-meta {
+  flex: 1 1 100%;
+  font-size: 11.5px;
+  color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft)));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---------- Hover magnification (Dock-style) ---------- */
 /* The hovered entry inflates a little more while the others deflate
    slightly. The scale lives on the inner bubble, not the branch —
@@ -376,6 +435,15 @@ body {
 .motion-full .bubble-tree .value-bubble:hover { transform: scale(1.05); }
 .motion-full .bubble-tree:has(.event-branch:hover) .event-branch:not(:hover) .event-bubble { transform: scale(0.98); }
 .motion-full .bubble-tree .value-branch:has(.value-bubble:hover) .value-bubble:not(:hover) { transform: scale(0.98); }
+/* While a drag is active, no hover scale anywhere on the panel: the
+   view must move, never grow, while the pointer crosses elements.
+   The renderer adds is-dragging on pointerdown and removes it when
+   the drag ends. */
+#bubbleView.is-dragging .bubble-header button:hover,
+#bubbleView.is-dragging .bubble-tree .event-bubble:hover,
+#bubbleView.is-dragging .bubble-tree .value-bubble:hover,
+#bubbleView.is-dragging .bubble-tree .event-bubble,
+#bubbleView.is-dragging .bubble-tree .value-bubble { transform: none !important; }
 
 /* ---------- Per-field text styling ---------- */
 /* Applied by the renderer to a value bubble or the event title,
@@ -389,19 +457,13 @@ body {
 /* ---------- Corner styles ---------- */
 /* Smooth: the pixel roundness (--corner-radius, default 32px, which
    renders as the current pill). Right angle: sharp 90°, the amount
-   is ignored. Jagged: a deliberate zigzag at each corner, via
-   clip-path — the border follows the zigzag, and the shadow is a
-   drop-shadow so it follows the clipped shape too. */
+   is ignored. */
 .corners-right .bubble { border-radius: 0; }
-.corners-jagged .bubble {
-  border-radius: 0;
-  clip-path: polygon(6% 0, 94% 0, 97% 2%, 94% 4%, 97% 6%, 100% 8%, 100% 92%, 97% 94%, 94% 96%, 97% 98%, 94% 100%, 6% 100%, 3% 98%, 6% 96%, 3% 94%, 0 92%, 0 8%, 3% 6%, 6% 4%, 3% 2%);
-}
 
 /* ---------- Bubble shadow (user option) ---------- */
 /* A drop-shadow, not a box-shadow, so it follows any corner shape
-   (including the jagged clip-path) and never fights the glass
-   inset highlight. Strength comes from --shadow-blur / --shadow-alpha. */
+   and never fights the glass inset highlight. Strength comes from
+   --shadow-blur / --shadow-alpha. */
 .shadow-on .bubble { filter: drop-shadow(0 2px var(--shadow-blur, 10px) rgba(0, 0, 0, var(--shadow-alpha, .14))); }
 
 /* ---------- Branch alignment ---------- */

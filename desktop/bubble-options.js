@@ -20,12 +20,11 @@
                  Glass, the shaded fill for Shaded, a faint tint for
                  Transparent. Text ink is auto-computed from it so a
                  dark background still reads (see readableInkFor).
-   cornerStyle   smooth | jagged | right (angle).
+   cornerStyle   smooth | right (angle).
    cornerRadius  0–32 px of rounding for the Smooth style; default 32,
                  which renders as the current pill (the radius clamps
                  to half the bubble height). 0 = sharp. Right angle
-                 ignores the amount (always 90°); Jagged ignores it
-                 (the zigzag is the edge).
+                 ignores the amount (always 90°).
    align         left | right | middle | center — how the branch
                  bubbles align in the tree. Default left (current).
                  Left/Right hug one edge; Center centers each bubble;
@@ -39,8 +38,13 @@
                  true — the event title is already bold, so that is
                  the current look, not an added bold.
    scrollbar     slim | standard — the tree scrollbar's width.
-                 Default slim. The thumb takes the accent color and
-                 the track is transparent either way.
+                 Default slim.
+   scrollbarColor null = the accent color (the current look), or a
+                 hex color for the thumb alone. Changing the accent
+                 no longer recolors the scrollbar once a color is
+                 picked. The track is transparent either way.
+   scrollbarShape pill | rounded | square — the thumb's corners.
+                 Default pill (fully round, the current look).
    iconColor     null = the theme ink (the current look), or a hex
                  color for the header icons (gear, magnifier, close).
    separation    bullets | lines | spacing — how entries are set
@@ -81,9 +85,9 @@ const WEIGHTS = { regular: 400, medium: 500, bold: 700 };
 const WEIGHT_LABELS = { regular: "Regular", medium: "Medium", bold: "Bold" };
 const WEIGHT_CYCLE = ["regular", "medium", "bold"];
 
-const CORNER_STYLES = ["smooth", "jagged", "right"];
-const CORNER_LABELS = { smooth: "Smooth", jagged: "Jagged", right: "Right angle" };
-const CORNER_CYCLE = ["smooth", "jagged", "right"];
+const CORNER_STYLES = ["smooth", "right"];
+const CORNER_LABELS = { smooth: "Smooth", right: "Right angle" };
+const CORNER_CYCLE = ["smooth", "right"];
 
 const ALIGNS = ["left", "right", "middle", "center"];
 const ALIGN_LABELS = { left: "Left", right: "Right", middle: "Middle", center: "Center" };
@@ -92,6 +96,13 @@ const ALIGN_CYCLE = ["left", "right", "middle", "center"];
 const SCROLLBARS = ["slim", "standard"];
 const SCROLLBAR_LABELS = { slim: "Slim", standard: "Standard" };
 const SCROLLBAR_CYCLE = ["slim", "standard"];
+
+/* Thumb corner shape: pill is fully round (the current look,
+   border-radius 999px), rounded is a small radius, square is sharp. */
+const SCROLLBAR_SHAPES = ["pill", "rounded", "square"];
+const SCROLLBAR_SHAPE_LABELS = { pill: "Pill", rounded: "Rounded", square: "Square" };
+const SCROLLBAR_SHAPE_CYCLE = ["pill", "rounded", "square"];
+const SCROLLBAR_SHAPE_RADIUS = { pill: "999px", rounded: "6px", square: "0" };
 
 const SEPARATIONS = ["bullets", "lines", "spacing"];
 const SEPARATION_LABELS = { bullets: "Bullets", lines: "Lines", spacing: "Spacing" };
@@ -112,6 +123,8 @@ const BUBBLE_OPTION_DEFAULTS = {
   textColor: null,
   fieldStyles: {},
   scrollbar: "slim",
+  scrollbarColor: null,
+  scrollbarShape: "pill",
   iconColor: null,
   separation: "bullets",
 };
@@ -195,6 +208,8 @@ function normalizeBubbleOptions(value) {
     textColor: isHex(src.textColor) ? src.textColor : null,
     fieldStyles: normalizeFieldStyles(src.fieldStyles),
     scrollbar: SCROLLBARS.indexOf(src.scrollbar) >= 0 ? src.scrollbar : d.scrollbar,
+    scrollbarColor: isHex(src.scrollbarColor) ? src.scrollbarColor : null,
+    scrollbarShape: SCROLLBAR_SHAPES.indexOf(src.scrollbarShape) >= 0 ? src.scrollbarShape : d.scrollbarShape,
     iconColor: isHex(src.iconColor) ? src.iconColor : null,
     separation: SEPARATIONS.indexOf(src.separation) >= 0 ? src.separation : d.separation,
   };
@@ -220,6 +235,10 @@ if (typeof module !== "undefined" && module.exports) {
     SCROLLBARS,
     SCROLLBAR_LABELS,
     SCROLLBAR_CYCLE,
+    SCROLLBAR_SHAPES,
+    SCROLLBAR_SHAPE_LABELS,
+    SCROLLBAR_SHAPE_CYCLE,
+    SCROLLBAR_SHAPE_RADIUS,
     SEPARATIONS,
     SEPARATION_LABELS,
     SEPARATION_CYCLE,

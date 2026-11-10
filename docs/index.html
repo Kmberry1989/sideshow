@@ -77,6 +77,7 @@
     <li><a href="#bubble">The bubble</a></li>
     <li><a href="#keyboard">Keyboard shortcuts</a></li>
     <li><a href="#calendar-view">Calendar view</a></li>
+    <li><a href="#week-view">Week view</a></li>
     <li><a href="#touch">Touch</a></li>
     <li><a href="#settings">Settings window</a></li>
     <li><a href="#position">Position</a></li>
@@ -107,7 +108,7 @@
   <li><strong>Long-click</strong> — press and hold a mouse button for the length you recorded, if you have set one up in Settings &gt; Summon.</li>
   <li><strong>Tray icon</strong> — click the Sideshow tent icon in the taskbar (Windows) or menu bar (Mac) once to toggle it, or double-click it. Right-click the icon for the menu: Show Sideshow, Sign in, Help, Quit.</li>
 </ul>
-<p>The bubble opens where your Position setting says it should — next to the cursor by default. Drag anywhere on the bubble to move it: press and drag from any spot and the whole overlay follows. The search box and text fields stay typeable while you drag from anywhere else. With Position set to Remember spot, it opens where you left it.</p>
+<p>The bubble opens where your Position setting says it should — next to the cursor by default. Drag anywhere on the bubble to move it: press and drag from any spot and the whole overlay follows, staying fully on screen — it never slides partly off the edge. The search box and text fields stay typeable while you drag from anywhere else. With Position set to Remember spot, it opens where you left it.</p>
 
 <h2 id="bubble">The bubble</h2>
 <p>The header has four controls, left to right: the gear (opens Settings), the search box, the calendar view toggle, and the close button (hides the bubble).</p>
@@ -116,12 +117,14 @@
 <h3>Events</h3>
 <p>Each event shows its name in large bold text, then the date and time range, then price, ages, host, and location in a smaller block separated by dots. Click an event to expand it into its value bubbles; click it again to collapse it.</p>
 <p>Each value bubble shows one detail. Click it and the detail is copied — a checkmark draws itself and a soft sound plays. The value bubbles are, in order: name, date, time range, price, ages, host, location. Only details the event actually has are shown.</p>
+<p>At the end of an expanded event's value bubbles is a <strong>Copy all</strong> row. Click it and the whole event is copied at once — every detail the event has, in the same order as the value bubbles, plus the description last, one field per line. The format is picked in Settings &gt; General under <strong>Copy all format</strong>: <strong>Labeled</strong> (default — one labeled line per field, like “Name: Christmas Ornaments”) or <strong>Plain</strong> (values only, same order, one per line). The same checkmark and sound confirm it. Press <kbd>C</kbd> with an event expanded to copy all of it.</p>
 <h3>Hiding events</h3>
 <p>Every event has an eye icon. Click it to hide that event: it stays saved in the bank, but it no longer appears in the bubble, the calendar view, the badge count, or reminders. Click the eye again — in the bubble or in Settings &gt; Events — to show it again.</p>
 <h3>Search</h3>
 <p>Type in the search box to filter the events live. It matches name, date, time, price, ages, host, location, and description. If nothing matches, the bubble says “No matching events.”</p>
 <h3>Hover</h3>
 <p>The entry under your cursor grows slightly while the others shrink a little, like the macOS Dock. This only applies when Motion is set to Full.</p>
+<p>Hovering any interactive element shows a short tooltip naming what it does — “Settings”, “Copy name”, “Hide event”. Tooltips are hover-only: they never appear on touch, and never while you are dragging. Turn them off in Settings &gt; General under <strong>Tooltips</strong>.</p>
 
 <h2 id="keyboard">Keyboard shortcuts</h2>
 <p>With an event expanded, single keys copy that event's details. The key for each detail is shown as a small badge after the value.</p>
@@ -135,14 +138,21 @@
     <tr><td><kbd>A</kbd></td><td>Ages</td></tr>
     <tr><td><kbd>H</kbd></td><td>Host</td></tr>
     <tr><td><kbd>L</kbd></td><td>Location</td></tr>
+    <tr><td><kbd>C</kbd></td><td>All details (Copy all)</td></tr>
   </tbody>
 </table>
 <p>Press <kbd>Esc</kbd> in the bubble to close it. In the Settings window, <kbd>Esc</kbd> closes Settings instead.</p>
 
 <h2 id="calendar-view">Calendar view</h2>
-<p>The calendar button in the header switches the bubble between the tree list and a month grid. The grid shows every event on the date it happens; events that last more than one day sit on their start date, and events with no date stay in the tree only.</p>
+<p>The calendar button in the header switches the bubble between three views: the tree list, a month grid, and a week journal. Tap the button to cycle tree → month → week → tree; the icon shows the view it will switch to next.</p>
+<p>The month grid shows every event on the date it happens; events that last more than one day sit on their start date, and events with no date stay in the tree only.</p>
 <p>Use the arrows to move between months, or click the month label to jump back to this month. Click an entry on a date and the bubble switches back to the tree with that event's branch open.</p>
 <p>The grid sits on the background from Settings &gt; Appearance — the same background color, look, and transparency slider that color the bubbles. On the default Clear look the backdrop is faint by design; pick Shaded, or a background color, for a solid backdrop behind the grid.</p>
+
+<h2 id="week-view">Week view</h2>
+<p>The week view is a journal-style list of the week's seven days, Sunday to Saturday — the same week start as the month grid. Each day is a section with its date heading and that day's events listed under it, with their time and name, plus price and location where the event has them. Days with no events show just the date heading.</p>
+<p>Use the arrows to move between weeks, or click the week label to jump back to this week. Events that last more than one day sit on their start date, and events with no date stay in the tree only. Click an entry and the bubble switches back to the tree with that event's branch open, same as the month grid.</p>
+<p>The week view has the same backdrop and border as the month grid, and it scrolls the same way: a vertical swipe scrolls the list, a sideways drag moves the window.</p>
 
 <h2 id="touch">Touch</h2>
 <p>Sideshow works with a touchscreen as well as a mouse. Tap the tray icon to summon the bubble, then tap an event to expand it and tap a value to copy it — a tap works exactly like a click everywhere, including the eye, the header buttons, and the calendar entries.</p>
@@ -162,6 +172,11 @@
   <li><strong>Center</strong> — the middle of the display with the cursor.</li>
   <li><strong>Remember spot</strong> — opens where you last dragged it.</li>
 </ul>
+<p><strong>Panel width</strong> sets how wide the bubble is, 320–560 px. Default 400 px. The change applies at once — the window resizes in place, no reload — and the tree and the calendar grid fit the new width.</p>
+<p><strong>Display</strong> picks which screen the bubble opens on: the display with the cursor (default), or the primary display.</p>
+<p><strong>Gap from cursor</strong> sets how far the bubble sits from the pointer when Position is Follow cursor, 0–64 px. Default 16 px.</p>
+<p><strong>Remembered spot</strong> clears the saved drag spot, so the next open reverts to the default placement. The button is only enabled when a spot is saved.</p>
+<p><strong>Dismiss when idle</strong> sets how long the bubble stays after your last interaction with it: <strong>Stay until closed</strong> (default — it never hides on its own), or it fades out gradually after 5 seconds, 10 seconds, 30 seconds, or 1 minute idle. The clock counts from the last interaction — pointer movement over the panel, clicks, taps, typing, scrolling, keyboard use. A mouse sitting still over the panel counts as idle. Any interaction restarts the clock. It never fires while the Settings window is open, or while you are dragging the bubble.</p>
 <p>The bubble's height always fits its content, so it never lands far away from the pointer.</p>
 
 <h2 id="appearance">Appearance</h2>
@@ -177,10 +192,10 @@
     <tr><td>Border</td><td>Border color — swatches or a custom color.</td></tr>
     <tr><td>Shadow</td><td>On or off, with a strength slider, 0–100. Default on at 40.</td></tr>
     <tr><td>Background</td><td>Background color — swatches or a custom color.</td></tr>
-    <tr><td>Corners</td><td>Smooth, Jagged, or Right angle, with a roundness slider, 0–32 px. Default Smooth at 32 px.</td></tr>
+    <tr><td>Corners</td><td>Smooth or Right angle, with a roundness slider, 0–32 px. Default Smooth at 32 px.</td></tr>
     <tr><td>Branches</td><td>How the tree lines up: Left (default), Right, Middle, or Center.</td></tr>
     <tr><td>Gentle pulse</td><td>A soft breathing animation on the bubbles. On by default.</td></tr>
-    <tr><td>Scrollbar</td><td>Slim (6 px, default) or Standard (12 px). The scrollbar thumb takes the accent color; the track is transparent.</td></tr>
+    <tr><td>Scrollbar</td><td>Slim (6 px, default) or Standard (12 px). <strong>Scrollbar color</strong> is its own setting — pick a color and changing the accent no longer recolors the thumb; unset, the thumb takes the accent color. The track is transparent. The thumb shape is Pill (fully round, default), Rounded, or Square, and applies to the tree, the calendar and week views, and the settings scroll areas.</td></tr>
     <tr><td>Icons</td><td>Color for the header icons — gear, magnifier, close. Default is the theme ink; pick a custom color to override it.</td></tr>
     <tr><td>Separate entries</td><td>How events are set apart: Bullets (small dots — default), Lines (a thin rule between entries), or Spacing (more breathing room).</td></tr>
   </tbody>
@@ -206,6 +221,9 @@
 <h2 id="general">General</h2>
 <p><strong>Sign in / Sign out.</strong> See <a href="#sign-in">Signing in</a>.</p>
 <p><strong>Sound.</strong> Soft bubble and pop sounds when the panel opens, closes, and copies. On by default.</p>
+<p><strong>Sound style.</strong> Which set of sounds plays: <strong>Bubbly</strong> (the current sounds, default), <strong>Chime</strong> (higher, longer, bell-like), <strong>Click</strong> (short and dry), or <strong>Pop</strong> (drops in pitch). Changing it plays one short sample of the set's copy sound. The Sound on/off toggle stays the master switch — the style only matters while sound is on.</p>
+<p><strong>Copy all format.</strong> What the Copy all row puts on the clipboard: <strong>Labeled</strong> (default — one labeled line per field) or <strong>Plain</strong> (values only, same order).</p>
+<p><strong>Tooltips.</strong> Short hover tooltips on every interactive element. On by default; turn them off to hide them all.</p>
 <p><strong>Motion.</strong> Full, Reduced, or Off. When you have not chosen, it follows your operating system's reduced-motion preference. Reduced softens the pulse; Off turns the pulse, the open animation, and the hover magnification off.</p>
 <p><strong>Reminders.</strong> On by default. Sideshow sends a system notification for each event twice: one day before it starts, and one hour before. The badge on the tray icon (and the Mac dock) counts upcoming events. Reminders and the badge work independently — either can be on without the other.</p>
 <p><strong>Accent.</strong> One color for the copy confirmation and the interface accents. Default follows the platform (blue on Mac, green on Windows), or pick Terracotta, Clay, Gold, Green, Teal, Blue, or Plum. Terracotta is the studio brand color.</p>

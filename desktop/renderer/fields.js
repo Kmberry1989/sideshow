@@ -91,6 +91,35 @@ function fieldValueForKey(ev, key) {
   }
 }
 
+/* Copy all: every field the event actually has, in the same order
+   as the value bubbles (name, date, time range, price, ages, host,
+   location), plus the description last when the record has one.
+   One field per line. "labeled" (default) puts the field name
+   before each value ("Name: Christmas Ornaments"); "plain" is the
+   values only, same order. Empty / hidden fields are skipped in
+   both formats, exactly like the value bubbles. */
+const COPY_ALL_FORMATS = ["labeled", "plain"];
+const COPY_ALL_FORMAT_LABELS = { labeled: "Labeled", plain: "Plain" };
+
+function copyAllText(ev, format) {
+  const e = ev || {};
+  const lines = [];
+  const push = (label, value) => {
+    if (!value) return;
+    lines.push(format === "plain" ? String(value) : label + ": " + value);
+  };
+  push("Name", e.title || "");
+  const d = parseDateVal(e.date);
+  push("Date", d ? fmtDateLong(d) : "");
+  push("Time", timeRange(e));
+  push("Price", e.price || "");
+  push("Ages", e.ages || "");
+  push("Host", e.host || "");
+  push("Location", e.location || "");
+  push("Description", e.description || "");
+  return lines.join("\n");
+}
+
 function eventTitle(ev) {
   return ev.title || "Untitled";
 }
@@ -126,5 +155,5 @@ function eventMatches(ev, q) {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { MONTHS, MONTHS_S, DAYS, DAYS_S, parseDateVal, parseTimeVal, fmtTime, fmtDateLong, fmtDateShort, eventChips, eventTitle, eventSubtitle, eventWhen, eventMatches, timeRange, fieldValueForKey };
+  module.exports = { MONTHS, MONTHS_S, DAYS, DAYS_S, parseDateVal, parseTimeVal, fmtTime, fmtDateLong, fmtDateShort, eventChips, eventTitle, eventSubtitle, eventWhen, eventMatches, timeRange, fieldValueForKey, COPY_ALL_FORMATS, COPY_ALL_FORMAT_LABELS, copyAllText };
 }

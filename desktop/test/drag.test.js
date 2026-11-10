@@ -56,6 +56,11 @@ test("targets inside the tree or calendar are marked as scroll areas", () => {
   assert.deepEqual(classifyDragTarget(fakeEl("button", ["event-bubble"], tree)), { start: true, fromRoot: false, inScrollArea: true });
   const cal = fakeEl("div", ["calendar-view"]);
   assert.deepEqual(classifyDragTarget(fakeEl("div", ["cal-cell"], cal)), { start: true, fromRoot: false, inScrollArea: true });
+  /* The week journal shares the calendar-view class, so it is a
+     scroll area too — a vertical swipe scrolls it, a sideways drag
+     moves the window. */
+  const week = fakeEl("div", ["calendar-view", "week-view"]);
+  assert.deepEqual(classifyDragTarget(fakeEl("button", ["week-event"], week)), { start: true, fromRoot: false, inScrollArea: true });
   const header = fakeEl("div", ["bubble-header"]);
   assert.deepEqual(classifyDragTarget(fakeEl("button", ["icon-btn"], header)), { start: true, fromRoot: false, inScrollArea: false });
 });

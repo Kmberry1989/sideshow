@@ -215,7 +215,7 @@ async function revokeRefreshToken() {
    the panel, via sideshow:drag-start / sideshow:drag-move). */
 function createPanel() {
   panel = new BrowserWindow({
-    width: 400,
+    width: panelWidth(),
     height: 560,
     show: false,
     frame: false,
@@ -288,10 +288,21 @@ function openSettingsWindow() {
   settingsWindow.once("ready-to-show", () => { if (settingsWindow) settingsWindow.show(); });
   settingsWindow.on("closed", () => {
     settingsWindow = null;
+    notifySettingsWindow(false);
     /* Restore the bubble to how it was before settings opened:
        hidden again if it was hidden, untouched if it was showing. */
     if (!panelVisibleBeforeSettings) hidePanel();
   });
+  notifySettingsWindow(true);
+}
+
+/* Tell the bubble whether the settings window is open. The bubble
+   is the live preview while settings are open, so its idle
+   auto-dismiss must not fire then. */
+function notifySettingsWindow(open) {
+  try {
+    if (panel && !panel.isDestroyed()) panel.webContents.send("sideshow:settings-window", !!open);
+  } catch (e) { /* panel gone */ }
 }
 
 function closeSettingsWindow() {
@@ -366,16 +377,26 @@ function positionSetting() {
   return position.normalizePositionSetting(settings.position);
 }
 
+/* The panel width from the Position setting (320–560, default 400).
+   The window, the positioning/clamping, and the drag clamp all use
+   this width; the renderer layout is fluid, so it follows the
+   window without a reload. */
+function panelWidth() {
+  return positionSetting().width;
+}
+
 /* Where the panel opens right now, for the current Position setting
    and the cursor's display. Fixed spots anchor to the cursor's
-   display work area, so the panel appears on the monitor being used. */
+   display work area, so the panel appears on the monitor being used.
+   Display "primary" opens on the primary display instead of the
+   display with the cursor. */
 function computePanelPosition() {
   const cursor = screen.getCursorScreenPoint();
-  const display = screen.getDisplayNearestPoint(cursor);
   const p = positionSetting();
+  const display = p.display === "primary" ? screen.getPrimaryDisplay() : screen.getDisplayNearestPoint(cursor);
   return {
     cursor,
-    pos: position.resolvePanelPosition(p.mode, p.custom, cursor, display.workArea, panelHeight),
+    pos: position.resolvePanelPosition(p.mode, p.custom, cursor, display.workArea, panelHeight, p.width, p.gap),
   };
 }
 
@@ -399,10 +420,10 @@ function setPanelHeight(h) {
   /* setContentSize, not setSize: on Linux setSize is a silent no-op
      for this frameless non-resizable window, while setContentSize
      resizes it. For a frameless window the two are the same size. */
-  try { panel.setContentSize(position.PANEL_W, panelHeight); } catch (e) { /* resize unsupported */ }
+  try { panel.setContentSize(panelWidth(), panelHeight); } catch (e) { /* resize unsupported */ }
   if (panel.isVisible()) {
     const p = panel.getPosition();
-    const c = position.clampPosition(p[0], p[1], display.workArea, position.PANEL_W, panelHeight);
+    const c = position.clampPosition(p[0], p[1], display.workArea, panelWidth(), panelHeight);
     if (c.x !== p[0] || c.y !== p[1]) panel.setPosition(c.x, c.y);
   }
 }
@@ -891,7 +912,13 @@ ipcMain.handle("sideshow:ignore-mouse", (_e, ignore) => {
 
 /* Custom drag: any spot on the panel is the drag handle. The
    renderer sends the window position at drag start, then deltas as
-   the pointer moves. A click without a move is a click, not a drag. */
+   the pointer moves. A click without a move is a click, not a drag.
+   The move target is clamped to the work area: an unclamped move
+   lets the window slide partly off-screen, so the visible panel
+   shrinks instead of moving — it looks like the view is scaling.
+   The drag-end save already clamped, but it never moved the window
+   to the clamped spot, so the saved spot and the real position
+   drifted apart and the next drag started from the wrong place. */
 let dragStartPos = null;
 ipcMain.handle("sideshow:drag-start", () => {
   dragStartPos = panel ? panel.getPosition() : null;
@@ -899,7 +926,11 @@ ipcMain.handle("sideshow:drag-start", () => {
 });
 ipcMain.handle("sideshow:drag-move", (_e, dx, dy) => {
   if (panel && dragStartPos) {
-    panel.setPosition(Math.round(dragStartPos[0] + (dx || 0)), Math.round(dragStartPos[1] + (dy || 0)));
+    const tx = Math.round(dragStartPos[0] + (dx || 0));
+    const ty = Math.round(dragStartPos[1] + (dy || 0));
+    const display = screen.getDisplayNearestPoint({ x: tx, y: ty });
+    const c = position.clampDragPosition(tx, ty, display.workArea, panelHeight, panelWidth());
+    panel.setPosition(c.x, c.y);
   }
   return true;
 });
@@ -907,11 +938,14 @@ ipcMain.handle("sideshow:drag-end", (_e, moved) => {
   /* "Remember spot": a real drag (not a click) drops the bubble at a
      spot the panel opens at next time. Only in custom mode, and only
      when the drag actually moved — a click on the root bubble just
-     toggles the focused event and must not set the spot. */
+     toggles the focused event and must not set the spot. The window
+     is moved to the clamped spot it saves, so the saved spot and
+     the real position always agree. */
   if (moved && panel && positionSetting().mode === "custom") {
     const pos = panel.getPosition();
     const display = screen.getDisplayNearestPoint({ x: pos[0], y: pos[1] });
-    const c = position.clampPosition(pos[0], pos[1], display.workArea, position.PANEL_W, panelHeight);
+    const c = position.clampPosition(pos[0], pos[1], display.workArea, panelWidth(), panelHeight);
+    if (c.x !== pos[0] || c.y !== pos[1]) panel.setPosition(c.x, c.y);
     const p = positionSetting();
     p.custom = { x: c.x, y: c.y };
     settings.position = p;
@@ -1080,16 +1114,39 @@ ipcMain.handle("sideshow:set-transparency", (_e, value) => {
 /* Panel position: where the bubble opens. "cursor" follows the
    pointer (default); the corners/center are fixed spots on the
    cursor's display; "custom" is a spot the user dragged the bubble
-   to. Changing it while the panel is open moves the panel at once,
-   so the user sees the new spot immediately. The renderer reports
-   the bubble's content height; main fits the window to it (see
-   setPanelHeight) so the bubble stays next to the cursor. */
+   to. The setting also carries the panel width (320–560, default
+   400), which display it opens on (cursor's or primary), the gap
+   from the cursor (0–64, default 16), and the idle auto-dismiss
+   (0 = stay until closed, else seconds). Accepts a mode string
+   (the old call — just cycles the mode) or a full object, merged
+   over the saved setting. A null custom clears the remembered spot.
+   Changing it while the panel is open moves/resizes the panel at
+   once, so the user sees the new spot immediately; a width change
+   resizes in place (clamped on-screen) instead of re-anchoring. */
 ipcMain.handle("sideshow:get-position", () => positionSetting());
-ipcMain.handle("sideshow:set-position", (_e, mode) => {
-  const p = position.normalizePositionSetting({ mode, custom: positionSetting().custom });
+ipcMain.handle("sideshow:set-position", (_e, value) => {
+  const cur = positionSetting();
+  const incoming = (typeof value === "string")
+    ? { mode: value }
+    : (value && typeof value === "object" ? value : {});
+  const merged = Object.assign({}, cur, incoming);
+  if (incoming.custom === null) merged.custom = null;
+  const p = position.normalizePositionSetting(merged);
+  const widthChanged = p.width !== cur.width;
+  const modeChanged = p.mode !== cur.mode;
   settings.position = p;
   saveSettings();
-  if (panel && panel.isVisible()) repositionPanel();
+  if (panel) {
+    if (widthChanged) {
+      try { panel.setContentSize(p.width, panelHeight); } catch (err) { /* resize unsupported */ }
+      const curPos = panel.getPosition();
+      const display = screen.getDisplayNearestPoint({ x: curPos[0], y: curPos[1] });
+      const c = position.clampPosition(curPos[0], curPos[1], display.workArea, p.width, panelHeight);
+      if (c.x !== curPos[0] || c.y !== curPos[1]) panel.setPosition(c.x, c.y);
+    }
+    if (modeChanged && panel.isVisible()) repositionPanel();
+  }
+  broadcastSettingsChange("position");
   return p;
 });
 ipcMain.on("sideshow:content-height", (_e, h) => { setPanelHeight(h); });
@@ -1147,6 +1204,46 @@ ipcMain.handle("sideshow:set-sound", (_e, enabled) => {
   settings.sound = !!enabled;
   saveSettings();
   return settings.sound;
+});
+
+/* Sound style: which set of synthesized sounds plays. "bubbly" is
+   the current set (default); "chime", "click", and "pop" are
+   distinct sets for the open / close / copy moments. The Sound
+   on/off toggle stays the master switch — the style only matters
+   while sound is on. */
+const SOUND_STYLES = ["bubbly", "chime", "click", "pop"];
+ipcMain.handle("sideshow:get-sound-style", () => {
+  return SOUND_STYLES.indexOf(settings.soundStyle) >= 0 ? settings.soundStyle : "bubbly";
+});
+ipcMain.handle("sideshow:set-sound-style", (_e, value) => {
+  settings.soundStyle = SOUND_STYLES.indexOf(value) >= 0 ? value : "bubbly";
+  saveSettings();
+  broadcastSettingsChange("sound-style");
+  return settings.soundStyle;
+});
+
+/* Copy all format: "labeled" (default — one labeled line per field,
+   "Name: Christmas Ornaments") or "plain" (values only, same order,
+   one per line). Controls what Copy all puts on the clipboard. */
+const COPY_ALL_FORMATS = ["labeled", "plain"];
+ipcMain.handle("sideshow:get-copy-all-format", () => {
+  return COPY_ALL_FORMATS.indexOf(settings.copyAllFormat) >= 0 ? settings.copyAllFormat : "labeled";
+});
+ipcMain.handle("sideshow:set-copy-all-format", (_e, value) => {
+  settings.copyAllFormat = COPY_ALL_FORMATS.indexOf(value) >= 0 ? value : "labeled";
+  saveSettings();
+  broadcastSettingsChange("copy-all-format");
+  return settings.copyAllFormat;
+});
+
+/* Tooltips on/off. On by default; off suppresses every hover
+   tooltip in the bubble and the settings window. */
+ipcMain.handle("sideshow:get-tooltips", () => settings.tooltips !== false);
+ipcMain.handle("sideshow:set-tooltips", (_e, enabled) => {
+  settings.tooltips = !!enabled;
+  saveSettings();
+  broadcastSettingsChange("tooltips");
+  return settings.tooltips;
 });
 
 /* Motion: "full" | "reduced" | "off" | null (null = follow the OS).

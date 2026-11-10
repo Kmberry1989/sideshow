@@ -176,6 +176,41 @@ function mergeEvents(meEvents, calEvents) {
   return me.concat(extra);
 }
 
+/* ---------- week journal view (pure, unit-tested) ---------- */
+
+/* The 7 dates of the week containing the given date, starting
+   Sunday — the same week start as the month grid (monthGrid starts
+   weeks Sunday, first.getDay() 0 = Sunday). Each entry is
+   { date: "YYYY-MM-DD", day: number, month: 0-based, year: number }.
+   `date` is a Date; the time of day is ignored. */
+function weekDates(date) {
+  const d = date instanceof Date ? new Date(date.getFullYear(), date.getMonth(), date.getDate()) : new Date();
+  const sunday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - d.getDay());
+  const out = [];
+  for (let i = 0; i < 7; i++) {
+    const cur = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + i);
+    out.push({
+      date: cur.getFullYear() + "-" + pad(cur.getMonth() + 1) + "-" + pad(cur.getDate()),
+      day: cur.getDate(),
+      month: cur.getMonth(),
+      year: cur.getFullYear(),
+    });
+  }
+  return out;
+}
+
+/* A date string shifted by n days ("YYYY-MM-DD" -> "YYYY-MM-DD").
+   Used for week navigation (prev/next week = -7 / +7 days). */
+function shiftDateStr(dateStr, days) {
+  if (!dateStr || typeof dateStr !== "string") return "";
+  const p = dateStr.split("-");
+  if (p.length !== 3) return "";
+  const d = new Date(+p[0], +p[1] - 1, +p[2]);
+  if (isNaN(d.getTime())) return "";
+  const cur = new Date(d.getFullYear(), d.getMonth(), d.getDate() + days);
+  return cur.getFullYear() + "-" + pad(cur.getMonth() + 1) + "-" + pad(cur.getDate());
+}
+
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { parseCalendarDescription, calendarEventToRecord, mergeEvents, localDateTime, dedupKey, daysInMonth, monthGrid, groupEventsByDate };
+  module.exports = { parseCalendarDescription, calendarEventToRecord, mergeEvents, localDateTime, dedupKey, daysInMonth, monthGrid, groupEventsByDate, weekDates, shiftDateStr };
 }

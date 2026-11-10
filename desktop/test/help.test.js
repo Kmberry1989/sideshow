@@ -37,6 +37,26 @@ test("help page documents the v0.1.10 features", () => {
   assert.ok(helpHtml.includes("solid backdrop behind the grid"), "help page must cover the calendar backdrop");
 });
 
+test("help page documents the v0.1.11 features", () => {
+  for (const feature of [
+    "Week view", /* week journal view */
+    "Copy all", /* copy-all row */
+    "Copy all format", /* labeled / plain setting */
+    "Sound style", /* sound sets */
+    "Tooltips", /* hover tooltips + disable setting */
+    "Dismiss when idle", /* idle auto-dismiss with fade */
+    "Panel width", /* position tab expansion */
+    "Gap from cursor",
+    "Remembered spot",
+    "Scrollbar color", /* scrollbar color + thumb shape */
+  ]) {
+    assert.ok(helpHtml.includes(feature), "help page must document: " + feature);
+  }
+  assert.ok(helpHtml.includes("tree → month → week → tree"), "help page must cover the three-view cycle");
+  assert.ok(helpHtml.includes("Pill"), "help page must cover the scrollbar thumb shapes");
+  assert.ok(!helpHtml.includes("Jagged"), "help page must not mention the removed Jagged corners option");
+});
+
 test("tray menu has a Help item opening the live help URL", () => {
   assert.ok(mainJs.includes('const HELP_URL = "' + HELP_URL + '"'), "main.js must define the live Pages URL");
   assert.ok(mainJs.includes('{ label: "Help", click: () => { shell.openExternal(HELP_URL); } }'),

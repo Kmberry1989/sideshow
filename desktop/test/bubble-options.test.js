@@ -21,6 +21,9 @@ test("defaults are the current look", () => {
   assert.equal(d.scrollbar, "slim");
   assert.equal(d.iconColor, null);
   assert.equal(d.separation, "bullets");
+  // Scrollbar color unset = accent (current look); shape Pill (current).
+  assert.equal(d.scrollbarColor, null);
+  assert.equal(d.scrollbarShape, "pill");
   // Name bold is true (the title is already bold); the rest normal.
   assert.equal(d.fieldStyles.n.bold, true);
   assert.equal(d.fieldStyles.n.italic, false);
@@ -52,6 +55,8 @@ test("normalization clamps and rejects bad values", () => {
   assert.equal(d.scrollbar, "slim");
   assert.equal(d.iconColor, null);
   assert.equal(d.separation, "bullets");
+  assert.equal(d.scrollbarColor, null);
+  assert.equal(d.scrollbarShape, "pill");
   assert.equal(d.fieldStyles.n.bold, false);
   assert.equal(d.fieldStyles.n.color, "#a44a24");
   assert.equal(d.fieldStyles.z, undefined);
@@ -61,7 +66,7 @@ test("valid values survive normalization", () => {
   const d = bo.normalizeBubbleOptions({
     scale: 80, font: "serif", weight: "bold",
     borderColor: "#4a6fa5", shadowOn: false, shadowStrength: 75,
-    bgColor: "#2b2118", cornerStyle: "jagged", cornerRadius: 0,
+    bgColor: "#2b2118", cornerStyle: "right", cornerRadius: 0,
     align: "center", pulse: false, textColor: "#c9962e",
     fieldStyles: { d: { italic: true }, p: { underline: true, bold: true } },
   });
@@ -72,7 +77,7 @@ test("valid values survive normalization", () => {
   assert.equal(d.shadowOn, false);
   assert.equal(d.shadowStrength, 75);
   assert.equal(d.bgColor, "#2b2118");
-  assert.equal(d.cornerStyle, "jagged");
+  assert.equal(d.cornerStyle, "right");
   assert.equal(d.cornerRadius, 0);
   assert.equal(d.align, "center");
   assert.equal(d.pulse, false);
@@ -86,6 +91,16 @@ test("valid values survive normalization", () => {
   // Untouched fields keep their defaults.
   assert.equal(d.fieldStyles.n.bold, true);
   assert.equal(d.fieldStyles.t.bold, false);
+});
+
+test("a saved jagged corner style falls back to Smooth (Jagged was removed)", () => {
+  const d = bo.normalizeBubbleOptions({ cornerStyle: "jagged" });
+  assert.equal(d.cornerStyle, "smooth");
+  assert.deepEqual(bo.CORNER_STYLES, ["smooth", "right"]);
+  assert.deepEqual(bo.CORNER_CYCLE, ["smooth", "right"]);
+  assert.equal(bo.CORNER_LABELS.smooth, "Smooth");
+  assert.equal(bo.CORNER_LABELS.right, "Right angle");
+  assert.equal(bo.CORNER_LABELS.jagged, undefined);
 });
 
 test("hexToRgb and rgba", () => {
@@ -112,6 +127,26 @@ test("scrollbar, icon color and separation survive normalization; bad values fal
   assert.deepEqual(bo.SCROLLBAR_CYCLE, ["slim", "standard"]);
   assert.deepEqual(bo.SEPARATION_CYCLE, ["bullets", "lines", "spacing"]);
   assert.equal(bo.SEPARATION_LABELS.bullets, "Bullets");
+});
+
+test("scrollbar color and thumb shape survive normalization; bad values fall back", () => {
+  const d = bo.normalizeBubbleOptions({
+    scrollbarColor: "#4a6fa5", scrollbarShape: "square",
+  });
+  assert.equal(d.scrollbarColor, "#4a6fa5");
+  assert.equal(d.scrollbarShape, "square");
+  const bad = bo.normalizeBubbleOptions({
+    scrollbarColor: "red", scrollbarShape: "round",
+  });
+  assert.equal(bad.scrollbarColor, null); /* unset = accent, the current look */
+  assert.equal(bad.scrollbarShape, "pill");
+  assert.deepEqual(bo.SCROLLBAR_SHAPE_CYCLE, ["pill", "rounded", "square"]);
+  assert.equal(bo.SCROLLBAR_SHAPE_LABELS.pill, "Pill");
+  assert.equal(bo.SCROLLBAR_SHAPE_LABELS.rounded, "Rounded");
+  assert.equal(bo.SCROLLBAR_SHAPE_LABELS.square, "Square");
+  assert.equal(bo.SCROLLBAR_SHAPE_RADIUS.pill, "999px");
+  assert.equal(bo.SCROLLBAR_SHAPE_RADIUS.rounded, "6px");
+  assert.equal(bo.SCROLLBAR_SHAPE_RADIUS.square, "0");
 });
 
 test("readableInkFor keeps text readable on dark and light backgrounds", () => {

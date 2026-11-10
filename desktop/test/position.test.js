@@ -103,10 +103,13 @@ test("custom with no saved spot yet falls back to follow-cursor", () => {
 });
 
 test("normalizePositionSetting: unknown mode falls back to cursor, bad custom is dropped", () => {
-  assert.deepEqual(pos.normalizePositionSetting(null), { mode: "cursor", custom: null });
-  assert.deepEqual(pos.normalizePositionSetting({ mode: "sideways" }), { mode: "cursor", custom: null });
-  assert.deepEqual(pos.normalizePositionSetting({ mode: "top-left", custom: { x: "a", y: 1 } }), { mode: "top-left", custom: null });
-  assert.deepEqual(pos.normalizePositionSetting({ mode: "custom", custom: { x: 120.6, y: 300 } }), { mode: "custom", custom: { x: 121, y: 300 } });
+  const defaults = { mode: "cursor", custom: null, width: 400, display: "cursor", gap: 16, dismiss: 0 };
+  assert.deepEqual(pos.normalizePositionSetting(null), defaults);
+  assert.deepEqual(pos.normalizePositionSetting({ mode: "sideways" }), defaults);
+  assert.deepEqual(pos.normalizePositionSetting({ mode: "top-left", custom: { x: "a", y: 1 } }),
+    { mode: "top-left", custom: null, width: 400, display: "cursor", gap: 16, dismiss: 0 });
+  assert.deepEqual(pos.normalizePositionSetting({ mode: "custom", custom: { x: 120.6, y: 300 } }),
+    { mode: "custom", custom: { x: 121, y: 300 }, width: 400, display: "cursor", gap: 16, dismiss: 0 });
 });
 
 test("clampHeight: tall content grows to the work area (no fixed 560 cap)", () => {
@@ -115,4 +118,67 @@ test("clampHeight: tall content grows to the work area (no fixed 560 cap)", () =
   assert.equal(pos.clampHeight(1200, 800), 800);
   assert.equal(pos.clampHeight(200, 800), 200);
   assert.equal(pos.clampHeight(50, 800), pos.PANEL_MIN_H);
+});
+
+test("normalizePositionSetting: width, display, gap, dismiss fall back to defaults", () => {
+  const d = pos.normalizePositionSetting(null);
+  assert.equal(d.width, 400);
+  assert.equal(d.display, "cursor");
+  assert.equal(d.gap, 16);
+  assert.equal(d.dismiss, 0);
+  const good = pos.normalizePositionSetting({ width: 560, display: "primary", gap: 0, dismiss: 30 });
+  assert.equal(good.width, 560);
+  assert.equal(good.display, "primary");
+  assert.equal(good.gap, 0);
+  assert.equal(good.dismiss, 30);
+  const bad = pos.normalizePositionSetting({ width: 100, display: "second", gap: 99, dismiss: 7 });
+  assert.equal(bad.width, 320); /* clamped to the range */
+  assert.equal(bad.display, "cursor");
+  assert.equal(bad.gap, 64); /* clamped to the range */
+  assert.equal(bad.dismiss, 0); /* not an offered choice */
+  assert.deepEqual(pos.DISMISS_OPTIONS, [0, 5, 10, 30, 60]);
+  assert.equal(pos.DISMISS_LABELS[0], "Stay until closed");
+  assert.equal(pos.DISMISS_LABELS[60], "1 minute");
+  assert.equal(pos.PANEL_W_MIN, 320);
+  assert.equal(pos.PANEL_W_MAX, 560);
+});
+
+test("follow-cursor honors the width and gap settings", () => {
+  /* Narrow panel, no gap: opens flush below-right of the pointer. */
+  const p = pos.panelPositionNearCursor({ x: 100, y: 100 }, AIR, 200, 320, 0);
+  assert.deepEqual(p, { x: 100, y: 100 });
+  /* Wide panel near the right edge flips left by the gap + width. */
+  const q = pos.panelPositionNearCursor({ x: 1400, y: 200 }, AIR, 200, 560, 64);
+  assert.ok(q.x + 560 <= 1400 - 64, "panel is left of the cursor by the gap");
+  assert.ok(q.x >= 0 && q.x + 560 <= 1440, "wide panel stays on-screen");
+  /* Default width/gap match the old behavior. */
+  const r = pos.panelPositionNearCursor({ x: 100, y: 100 }, AIR, 200);
+  assert.deepEqual(r, { x: 116, y: 116 });
+});
+
+test("resolvePanelPosition honors the width setting at the corners", () => {
+  const tl = pos.resolvePanelPosition("top-left", null, { x: 0, y: 0 }, AIR, 200, 320, 16);
+  assert.deepEqual(tl, { x: 0, y: 25 });
+  const tr = pos.resolvePanelPosition("top-right", null, { x: 0, y: 0 }, AIR, 200, 320, 16);
+  assert.equal(tr.x + 320, 1440);
+  assert.equal(tr.y, 25);
+  const center = pos.resolvePanelPosition("center", null, { x: 0, y: 0 }, AIR, 200, 320, 16);
+  assert.equal(center.x, Math.round((1440 - 320) / 2));
+});
+
+test("clampDragPosition keeps a drag target fully on-screen", () => {
+  /* The drag bug: an unclamped drag-move let the window slide past
+     the work-area edge, so the visible panel shrank instead of
+     moving — it looked like the view was scaling. */
+  const bounds = { x: 0, y: 0, width: 1024, height: 800 };
+  /* Past the right edge: clamped back so the whole panel shows. */
+  assert.deepEqual(pos.clampDragPosition(800, 100, bounds, 200, 400), { x: 624, y: 100 });
+  /* Past the bottom edge: clamped up. */
+  assert.deepEqual(pos.clampDragPosition(100, 700, bounds, 200, 400), { x: 100, y: 600 });
+  /* Past the left/top edges: clamped to the origin. */
+  assert.deepEqual(pos.clampDragPosition(-50, -20, bounds, 200, 400), { x: 0, y: 0 });
+  /* Inside: untouched. */
+  assert.deepEqual(pos.clampDragPosition(100, 100, bounds, 200, 400), { x: 100, y: 100 });
+  /* A narrower panel has a wider range. */
+  assert.deepEqual(pos.clampDragPosition(800, 100, bounds, 200, 320), { x: 704, y: 100 });
 });

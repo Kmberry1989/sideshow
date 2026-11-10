@@ -28,7 +28,29 @@
         <div class="settings-tab-panel" id="tab-position">
           <div class="setting">
             <span class="setting-label">Position</span>
-            <button id="positionBtn" type="button" class="btn plain setting-btn">Follow cursor</button>
+            <button id="positionBtn" type="button" class="btn plain setting-btn" data-tip="Position">Follow cursor</button>
+          </div>
+          <div class="setting">
+            <span class="setting-label">Panel width</span>
+            <input id="panelWidthSlider" type="range" class="setting-slider" min="320" max="560" step="8" value="400" aria-label="Panel width" data-tip="Panel width" />
+            <span id="panelWidthValue" class="setting-value">400px</span>
+          </div>
+          <div class="setting">
+            <span class="setting-label">Display</span>
+            <button id="panelDisplayBtn" type="button" class="btn plain setting-btn" data-tip="Display">Display with cursor</button>
+          </div>
+          <div class="setting">
+            <span class="setting-label">Gap from cursor</span>
+            <input id="cursorGapSlider" type="range" class="setting-slider" min="0" max="64" step="1" value="16" aria-label="Gap from cursor" data-tip="Gap from cursor" />
+            <span id="cursorGapValue" class="setting-value">16px</span>
+          </div>
+          <div class="setting">
+            <span class="setting-label">Remembered spot</span>
+            <button id="resetSpotBtn" type="button" class="btn plain setting-btn" data-tip="Reset remembered spot">Reset remembered spot</button>
+          </div>
+          <div class="setting">
+            <span class="setting-label">Dismiss when idle</span>
+            <button id="dismissBtn" type="button" class="btn plain setting-btn" data-tip="Dismiss when idle">Stay until closed</button>
           </div>
         </div>
         <div class="settings-tab-panel" id="tab-appearance" hidden>
@@ -99,7 +121,16 @@
           </div>
           <div class="setting">
             <span class="setting-label">Scrollbar</span>
-            <button id="scrollbarBtn" type="button" class="btn plain setting-btn">Slim</button>
+            <button id="scrollbarBtn" type="button" class="btn plain setting-btn" data-tip="Scrollbar width">Slim</button>
+          </div>
+          <div class="setting">
+            <span class="setting-label">Scrollbar color</span>
+            <span id="scrollbarSwatches" class="swatches"></span>
+            <input id="scrollbarColorInput" type="color" class="color-input" value="#a44a24" aria-label="Custom scrollbar color" title="Custom color" data-tip="Custom scrollbar color" />
+          </div>
+          <div class="setting">
+            <span class="setting-label">Scrollbar shape</span>
+            <button id="scrollbarShapeBtn" type="button" class="btn plain setting-btn" data-tip="Scrollbar shape">Pill</button>
           </div>
           <div class="setting">
             <span class="setting-label">Icons</span>
@@ -147,7 +178,19 @@
           </div>
           <div class="setting">
             <span class="setting-label">Sound</span>
-            <button id="soundBtn" type="button" class="btn plain setting-btn" aria-label="Sound on or off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>
+            <button id="soundBtn" type="button" class="btn plain setting-btn" aria-label="Sound on or off" data-tip="Sound"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>
+          </div>
+          <div class="setting">
+            <span class="setting-label">Sound style</span>
+            <button id="soundStyleBtn" type="button" class="btn plain setting-btn" data-tip="Sound style">Bubbly</button>
+          </div>
+          <div class="setting">
+            <span class="setting-label">Copy all format</span>
+            <button id="copyAllFormatBtn" type="button" class="btn plain setting-btn" data-tip="Copy all format">Labeled</button>
+          </div>
+          <div class="setting">
+            <span class="setting-label">Tooltips</span>
+            <button id="tooltipsBtn" type="button" class="btn plain setting-btn" data-tip="Tooltips">On</button>
           </div>
           <div class="setting">
             <span class="setting-label">Motion</span>
