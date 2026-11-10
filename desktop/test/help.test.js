@@ -22,8 +22,8 @@ const helpHtml = read(path.join(REPO, "docs", "index.html"));
 
 const HELP_URL = "https://kmberry1989.github.io/sideshow/";
 
-test("help page exists and covers Sideshow v0.1.11", () => {
-  assert.ok(helpHtml.includes("Sideshow v0.1.11"), "help page must name the version it documents");
+test("help page exists and covers Sideshow v0.1.12", () => {
+  assert.ok(helpHtml.includes("Sideshow v0.1.12"), "help page must name the version it documents");
   for (const section of ["Summoning", "Calendar view", "Settings window", "Google Calendar", "Signing in", "Installing"]) {
     assert.ok(helpHtml.includes(section), "help page must cover: " + section);
   }
