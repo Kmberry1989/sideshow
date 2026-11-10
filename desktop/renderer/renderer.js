@@ -2024,9 +2024,15 @@ document.addEventListener("DOMContentLoaded", () => {
     playOpenSound();
     maybeRefreshCalendarEvents();
     inflateBubble();
-    ignoreMouseState = null;
+    /* Start interactive: the showing position may only ever turn
+       input ON, never off. A stale cursor (tray-tap summon on a
+       touchscreen) must not leave the panel click-through with no
+       mouse to flip it back — the mousemove handler enables
+       click-through once the pointer really moves over empty space. */
+    ignoreMouseState = false;
     if (data && typeof data.x === "number" && typeof data.y === "number") {
-      updateIgnoreMouse(data.x, data.y);
+      const el = document.elementFromPoint(data.x, data.y);
+      if (el && el.closest && el.closest(CLICKABLE_SELECTOR)) updateIgnoreMouse(data.x, data.y);
     }
   });
   window.sideshow.onPanelHiding(() => {

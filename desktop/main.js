@@ -411,10 +411,14 @@ function showPanel() {
   if (!panel) return;
   const { cursor, pos } = computePanelPosition();
   panel.setPosition(pos.x, pos.y);
-  /* Start click-through: the transparent area around the bubble must
-     not swallow desktop clicks. The renderer re-enables mouse input
-     (ignore=false) when the pointer is over the bubble. */
-  try { panel.setIgnoreMouseEvents(true, { forward: true }); } catch (e) { /* click-through unsupported */ }
+  /* Start interactive: a tap must land even when the pointer is
+     elsewhere — a tray-tap summon on a touchscreen leaves the mouse
+     cursor far from the panel, so there is no position to seed
+     click-through from and the bubble would stay untappable (touch
+     has no hover to flip it back). The renderer enables
+     click-through (ignore=true) once the pointer really moves over
+     empty space. */
+  try { panel.setIgnoreMouseEvents(false); } catch (e) { /* click-through unsupported */ }
   if (fadeTimer) { clearInterval(fadeTimer); fadeTimer = null; }
   const dur = fadeDurationMs();
   /* Cursor position relative to the panel, so the renderer can set
