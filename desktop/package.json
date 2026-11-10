@@ -1,5 +1,6 @@
 {
   "build": {
+    "afterPack": "scripts/after-pack.js",
     "appId": "com.firedarts.sideshow",
     "directories": {
       "output": "dist"
@@ -15,7 +16,8 @@
       "package.json",
       "firebase-config.json",
       "assets/**/*",
-      "renderer/**/*"
+      "renderer/**/*",
+      "!**/*.map"
     ],
     "mac": {
       "category": "public.app-category.utilities",
@@ -56,9 +58,10 @@
     "dist:mac": "npm run build && electron-builder --mac dmg",
     "dist:win": "npm run build && electron-builder --win nsis",
     "dist:win-native": "npm run build && electron-builder --win --dir && makensis installer.nsi",
-    "pack": "npm run build && electron-packager . Sideshow --platform=win32,darwin --arch=x64 --out=dist --overwrite --icon=assets/icon",
+    "pack": "npm run build && node scripts/pack.js win32 darwin",
+    "pack:linux": "npm run build && node scripts/pack.js linux",
     "start": "npm run build && electron .",
-    "test": "node --test test/fields.test.js test/summon.test.js test/calendar.test.js test/position.test.js test/bubble-options.test.js test/packaging.test.js test/settings-window.test.js test/calendar-view.test.js test/v019.test.js test/help.test.js test/drag.test.js test/v010.test.js test/touch-summon.test.js test/week-view.test.js test/copy-all.test.js test/v011.test.js"
+    "test": "node --test test/fields.test.js test/summon.test.js test/calendar.test.js test/position.test.js test/bubble-options.test.js test/packaging.test.js test/settings-window.test.js test/calendar-view.test.js test/v019.test.js test/help.test.js test/drag.test.js test/v010.test.js test/touch-summon.test.js test/week-view.test.js test/copy-all.test.js test/v011.test.js test/trim.test.js"
   },
   "version": "0.1.11"
 }

@@ -78,3 +78,22 @@ test("main.js and preload.js themselves are shipped", () => {
   assert.ok(covered.has("main.js"), "main.js not in build.files");
   assert.ok(covered.has("preload.js"), "preload.js not in build.files");
 });
+
+/* Size trim (v0.1.11 era): the Firebase SDK ships ~64 MB of .map files
+   (454 of them) that the running app never uses. They must stay out of the
+   installer. If the exclusion is dropped, the asar balloons again. */
+test("electron-builder files list excludes source maps", () => {
+  assert.ok(
+    patterns.includes("!**/*.map"),
+    'build.files must exclude source maps ("!**/*.map") — the Firebase SDK ships ~64 MB of them',
+  );
+});
+
+test("electron-builder afterPack hook exists and prunes locales", () => {
+  const hook = pkg.build && pkg.build.afterPack;
+  assert.ok(hook, "build.afterPack must be set — it prunes the ~40-60 MB of non-English Chromium locales");
+  assert.ok(
+    fs.existsSync(path.join(DESKTOP, hook)),
+    `afterPack hook file missing: ${hook}`,
+  );
+});
