@@ -22,15 +22,15 @@ const helpHtml = read(path.join(REPO, "docs", "index.html"));
 
 const HELP_URL = "https://kmberry1989.github.io/sideshow/";
 
-test("help page exists and covers Sideshow v0.1.10", () => {
-  assert.ok(helpHtml.includes("Sideshow v0.1.10"), "help page must name the version it documents");
+test("help page exists and covers Sideshow v0.1.11", () => {
+  assert.ok(helpHtml.includes("Sideshow v0.1.11"), "help page must name the version it documents");
   for (const section of ["Summoning", "Calendar view", "Settings window", "Google Calendar", "Signing in", "Installing"]) {
     assert.ok(helpHtml.includes(section), "help page must cover: " + section);
   }
   assert.ok(!helpHtml.includes("TODO") && !helpHtml.includes("Lorem ipsum"), "help page must have no placeholder content");
 });
 
-test("help page documents the v0.1.10 features", () => {
+test("help page documents the v0.1.10-era features", () => {
   for (const feature of ["Touch", "Drag anywhere on the bubble", "Studio", "Dark", "Light", "White"]) {
     assert.ok(helpHtml.includes(feature), "help page must document: " + feature);
   }
