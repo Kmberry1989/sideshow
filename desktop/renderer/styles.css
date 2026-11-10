@@ -286,6 +286,64 @@ body {
 .eye-btn:hover { color: var(--bubble-ink-user, var(--bubble-ink-auto, var(--ink))); }
 .eye-btn svg { width: 15px; height: 15px; display: block; }
 
+/* ---------- Pin (pin / unpin one event) ---------- */
+/* Same 34px hit area as the eye, same negative margins, so the
+   layout footprint is unchanged. Pinned, the pin fills in. */
+.pin-btn { margin: -5px -2px -6px -4px; }
+.pin-btn.pinned { color: var(--accent); }
+.pin-btn.pinned svg { fill: currentColor; }
+
+/* ---------- Next up ---------- */
+/* One row at the top of the tree: the soonest upcoming event, with
+   a live countdown. Full width, same bubble look as the event
+   bubbles; the label is small, the title carries the event, the
+   countdown sits at the right. */
+.next-up {
+  width: 100%;
+  padding: 8px 14px;
+  font-size: 13.5px;
+  margin-bottom: 8px;
+  align-items: flex-start;
+}
+.next-up-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft)));
+  flex: none;
+  margin-top: 2px;
+}
+.next-up-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.next-up-title { font-size: 15px; font-weight: 700; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.next-up-when { font-size: 12.5px; color: var(--bubble-ink-user, var(--bubble-ink-auto, var(--ink))); line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.next-up-countdown {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+  flex: none;
+  margin-top: 2px;
+}
+
+/* ---------- Pinned section ---------- */
+/* A small label above the pinned events, then the pinned branches.
+   Pinned events do not appear in the main list as well. */
+.pinned-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft)));
+  margin: 2px 0 8px 2px;
+}
+
 /* ---------- Calendar view (month grid) ---------- */
 /* 7 equal columns so the grid fits the 400px frame exactly; cells
    grow vertically, never sideways. Chips truncate with ellipsis. */

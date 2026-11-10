@@ -12,6 +12,7 @@ import { getAuth, GoogleAuthProvider, signInWithCredential, signOut, onAuthState
 import { getFirestore, collection, query, orderBy, limit, onSnapshot, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { eventTitle, eventWhen, eventMatches, fieldValueForKey, MONTHS, fmtDateShort, fmtDateLong, timeRange, COPY_ALL_FORMAT_LABELS, copyAllText } from "./fields.js";
 import { calendarEventToRecord, mergeEvents, monthGrid, groupEventsByDate, weekDates, shiftDateStr } from "./calendar.js";
+import { nextUpcomingEvent, formatCountdown, isAllDay } from "./nextup.js";
 import { classifyDragTarget, isDragMovement, shouldEngageDrag } from "./drag.js";
 import {
   FIELD_KEYS, FIELD_LABELS, FONTS, FONT_LABELS, FONT_CYCLE,
@@ -58,7 +59,7 @@ let copyAllFormat = "labeled"; /* labeled | plain — what Copy all puts on the 
 let tooltipsOn = true; /* hover tooltips on every interactive element */
 let audioCtx = null;
 let motionSetting = null; /* explicit user choice: "full"|"reduced"|"off"|null (follow OS) */
-let remindersOn = true;
+let remindersOn = false; /* off by default — the core works with everything off */
 let accentSetting = null; /* null = platform default */
 let appearanceSetting = "glass"; /* glass | shaded | clear */
 let transparencySetting = 50; /* 0-100 */
@@ -83,6 +84,12 @@ const DISMISS_OPTIONS = [0, 5, 10, 30, 60];
 let currentView = IS_SETTINGS_WINDOW ? "settings" : "bubble"; /* bubble | settings */
 let signedIn = false;
 let hiddenIds = new Set(); /* event _ids hidden with the eye; stay in the bank, out of the bubble */
+let pinnedIds = new Set(); /* event _ids pinned; they render in the Pinned section at the top, not their normal place */
+let cachedMode = false; /* true while the tree shows the last fetched events because the live fetch failed */
+let reminderLead = 15; /* minutes before an event starts that its reminder fires (provisional list: 5/10/15/30/60) */
+const REMINDER_LEAD_OPTIONS = [5, 10, 15, 30, 60]; /* provisional — Kyle picks the final list */
+let nextUpTimer = null; /* 30s tick that refreshes the Next up countdown in place */
+let nextUpShown = null; /* { event, startMs } currently shown in the Next up row */
 /* Bubble view mode: "tree" (the branch list), "calendar" (month
    grid), or "week" (journal list). The calendar and week views are
    navigation aids — clicking an entry jumps back to the tree with
@@ -802,6 +809,9 @@ const X_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
    show it again from the Settings Events list. */
 const EYE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+/* Pin icon (SVG, never emoji): pin an event to the Pinned section at
+   the top of the tree. Pinned, the pin fills in. */
+const PIN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 3h6l1 7 3 3H5l3-3 1-7z"/></svg>';
 /* Calendar icon for the tree/calendar toggle in the bubble header. */
 const CALENDAR_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
 
@@ -855,6 +865,19 @@ async function setEventHidden(ev, hidden) {
   else hiddenIds.delete(ev._id);
   if (hidden && focusedEvent && focusedEvent._id === ev._id) focusedEvent = null;
   try { await window.sideshow.setHiddenEvents([...hiddenIds]); } catch (e) { /* stays local */ }
+  render();
+  if (IS_SETTINGS_WINDOW) renderEventsList();
+}
+
+/* Pin or unpin one event. Pinned events render in the Pinned
+   section at the top of the tree instead of their normal place —
+   they do not appear twice. The pin persists in settings, so it
+   survives a reload. */
+async function setEventPinned(ev, pinned) {
+  if (!ev || !ev._id) return;
+  if (pinned) pinnedIds.add(ev._id);
+  else pinnedIds.delete(ev._id);
+  try { await window.sideshow.setPinnedEvents([...pinnedIds]); } catch (e) { /* stays local */ }
   render();
   if (IS_SETTINGS_WINDOW) renderEventsList();
 }
@@ -1145,6 +1168,17 @@ function renderEventsList() {
     eye.innerHTML = hidden ? EYE_OFF_SVG : EYE_SVG;
     eye.addEventListener("click", () => setEventHidden(ev, !hidden));
     head.appendChild(eye);
+    /* Pin: same row as the eye — pinned events render in the Pinned
+       section at the top of the tree instead of their normal place. */
+    const pinned = pinnedIds.has(ev._id);
+    const pin = document.createElement("button");
+    pin.type = "button";
+    pin.className = "eye-btn pin-btn" + (pinned ? " pinned" : "");
+    pin.setAttribute("aria-label", pinned ? "Unpin event" : "Pin event");
+    pin.title = pinned ? "Unpin event" : "Pin event";
+    pin.innerHTML = PIN_SVG;
+    pin.addEventListener("click", () => setEventPinned(ev, !pinnedIds.has(ev._id)));
+    head.appendChild(pin);
     row.appendChild(head);
     if (!isCal && eventsListOpen.has(ev._id)) {
       const form = document.createElement("div");
@@ -1273,8 +1307,80 @@ function render() {
     reportContentHeight();
     return;
   }
-  visible.forEach((ev, evIndex) => {
+  /* Next up: the soonest upcoming visible event, with a live
+     countdown. Clicking it jumps to that event's branch. */
+  renderNextUp(visible);
+  /* Pinned: pinned events render here, at the top, instead of their
+     normal place — they do not appear twice. */
+  const pinned = visible.filter((ev) => pinnedIds.has(ev._id));
+  const rest = visible.filter((ev) => !pinnedIds.has(ev._id));
+  if (pinned.length) {
+    const label = document.createElement("div");
+    label.className = "pinned-label";
+    label.textContent = "Pinned";
+    tree.appendChild(label);
+    pinned.forEach((ev, i) => tree.appendChild(renderEventBranch(ev, i)));
+  }
+  rest.forEach((ev, evIndex) => tree.appendChild(renderEventBranch(ev, evIndex)));
+  reportContentHeight();
+}
+
+/* The Next up row: the soonest upcoming visible event (today
+   first), with a countdown that ticks every 30 seconds. Clicking it
+   opens that event's branch. The row is rebuilt on every render;
+   the countdown text is refreshed in place by the timer so a tick
+   never steals the search box focus. */
+function renderNextUp(visible) {
+  const tree = $("bubbleTree");
+  if (!tree) return;
+  nextUpShown = nextUpcomingEvent(visible);
+  if (!nextUpShown) return;
+  const ev = nextUpShown.event;
+  const row = document.createElement("button");
+  row.type = "button";
+  row.className = "bubble next-up";
+  const when = eventWhen(ev);
+  row.innerHTML =
+    '<span class="next-up-label">Next up</span>' +
+    '<span class="next-up-main">' +
+    '<span class="next-up-title">' + escapeHtml(eventTitle(ev)) + "</span>" +
+    (when ? '<span class="next-up-when">' + escapeHtml(when) + "</span>" : "") +
+    "</span>" +
+    '<span class="next-up-countdown">' + escapeHtml(formatCountdown(nextUpShown.startMs, Date.now(), isAllDay(ev))) + "</span>";
+  setTitle(row, eventTitle(ev));
+  row.addEventListener("click", () => {
+    focusedEvent = ev;
+    render();
+    const card = document.querySelector("#bubbleTree .event-branch.expanded");
+    if (card) card.scrollIntoView({ block: "nearest" });
+  });
+  tree.appendChild(row);
+}
+
+/* Refresh the Next up countdown in place (no re-render, so the
+   search box keeps its focus). Runs every 30 seconds. */
+function refreshNextUpCountdown() {
+  if (IS_SETTINGS_WINDOW) return;
+  if (bubbleViewMode !== "tree") return;
+  const row = document.querySelector("#bubbleTree .next-up");
+  if (!row) return;
+  const next = nextUpcomingEvent(visibleEvents());
+  if (!next) { row.remove(); nextUpShown = null; return; }
+  nextUpShown = next;
+  const count = row.querySelector(".next-up-countdown");
+  if (count) count.textContent = formatCountdown(next.startMs, Date.now(), isAllDay(next.event));
+  const title = row.querySelector(".next-up-title");
+  if (title) title.textContent = eventTitle(next.event);
+  const when = row.querySelector(".next-up-when");
+  if (when) when.textContent = eventWhen(next.event);
+  setTitle(row, eventTitle(next.event));
+}
+
+/* One event's branch: the event bubble (name, when, meta, expand
+   mark, pin, eye) plus its value bubbles when expanded. */
+function renderEventBranch(ev, evIndex) {
     const isExpanded = focusedEvent && focusedEvent._id === ev._id;
+    const isPinned = pinnedIds.has(ev._id);
     const item = document.createElement("div");
     item.className = "event-branch pulse-item" + (isExpanded ? " expanded" : "");
     /* Stagger: each event breathes a beat after the one before it
@@ -1306,6 +1412,7 @@ function render() {
         '<span class="event-meta-item">' + escapeHtml(m) + "</span>").join("") + "</span>" : "") +
       "</span>" +
       '<span class="expand-mark">' + (isExpanded ? "−" : "+") + "</span>" +
+      '<span class="pin-btn' + (isPinned ? " pinned" : "") + '" role="button" aria-label="' + (isPinned ? "Unpin event" : "Pin event") + '" title="' + (isPinned ? "Unpin event" : "Pin event") + '">' + PIN_SVG + "</span>" +
       '<span class="eye-btn" role="button" aria-label="Hide event" title="Hide event">' + EYE_SVG + "</span>";
     btn.addEventListener("click", () => {
       focusedEvent = isExpanded ? null : ev;
@@ -1321,6 +1428,17 @@ function render() {
         e.stopPropagation();
         e.preventDefault();
         setEventHidden(ev, true);
+      });
+    }
+    /* The pin moves the event to (or from) the Pinned section at the
+       top of the tree — same stop, so pinning never also expands. */
+    const pin = btn.querySelector(".pin-btn");
+    if (pin) {
+      setTitle(pin, isPinned ? "Unpin event" : "Pin event");
+      pin.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        setEventPinned(ev, !isPinned);
       });
     }
     item.appendChild(btn);
@@ -1360,9 +1478,7 @@ function render() {
       item.appendChild(values);
     }
 
-    tree.appendChild(item);
-  });
-  reportContentHeight();
+    return item;
 }
 
 /* ---------- content height: fit the window to the bubble ---------- */
@@ -1522,14 +1638,26 @@ document.addEventListener("mouseleave", () => { lastMousePos = null; });
 
 /* ---------- Google Calendar events (opt-in, never blocks the bubble) ---------- */
 
+/* Save the merged list as the offline cache, whenever live data
+   arrives. The cache is only written from live data — never from
+   the cache itself — so a stale cache can never overwrite a fresh
+   one. */
+async function saveEventCache() {
+  if (!signedIn || !events.length) return;
+  try { await window.sideshow.setCachedEvents({ savedAt: Date.now(), events }); } catch (e) { /* cache not saved */ }
+}
+
 /* Rebuild the merged list: Main Eventer events first, then deduped
    calendar events. Re-renders and re-syncs the badge/reminders. */
 function recomputeEvents() {
   events = mergeEvents(meEvents, calEvents);
   if (focusedEvent && !events.some((e) => e._id === focusedEvent._id)) focusedEvent = null;
+  /* Live data arrived: the tree is live again, not cached. */
+  if (cachedMode) { cachedMode = false; setStatus(""); }
   render();
   if (IS_SETTINGS_WINDOW) renderEventsList();
   syncEventsToMain();
+  saveEventCache();
 }
 
 /* Fetch the selected calendars' events (forced when the toggle or
@@ -1635,6 +1763,16 @@ function subscribe() {
     recomputeEvents();
     maybeRefreshCalendarEvents();
   }, () => {
+    /* No network (or another fetch failure): keep showing the last
+       fetched events and say so — the tree stays useful offline.
+       With nothing fetched yet, the error state stands. */
+    if (events.length) {
+      cachedMode = true;
+      setStatus("Showing cached events");
+      setState("list");
+      render();
+      return;
+    }
     setState("error");
     setStatus("Could not load events.");
   });
@@ -1674,12 +1812,29 @@ async function signInWithIdToken(idToken) {
 
 async function init() {
   setState("loading");
-  /* Hidden ids first, before the snapshot subscribes — otherwise the
-     first render can flash events the user hid. */
+  /* Hidden + pinned ids first, before the snapshot subscribes —
+     otherwise the first render can flash events the user hid. */
   try {
     const h = await window.sideshow.getHiddenEvents();
     if (Array.isArray(h)) hiddenIds = new Set(h);
   } catch (e) { /* hidden list stays empty */ }
+  try {
+    const p = await window.sideshow.getPinnedEvents();
+    if (Array.isArray(p)) pinnedIds = new Set(p);
+  } catch (e) { /* pinned list stays empty */ }
+  /* Cached events render immediately, before the live fetch lands —
+     the tree is useful the moment the panel opens, even offline.
+     The status line says they are cached until live data arrives
+     and replaces them. */
+  try {
+    const c = await window.sideshow.getCachedEvents();
+    if (c && Array.isArray(c.events) && c.events.length) {
+      events = c.events;
+      cachedMode = true;
+      setStatus("Showing cached events");
+      render();
+    }
+  } catch (e) { /* no cache; the live fetch fills the tree */ }
   const st = await window.sideshow.configStatus();
   if (!st.hasConfig) { setState("config"); return; }
   const fbConfig = await window.sideshow.firebaseConfig();
@@ -1793,7 +1948,17 @@ async function refreshSettingsUI() {
     remindersOn = await window.sideshow.getReminders();
     const btn = $("remindersBtn");
     if (btn) btn.innerHTML = remindersOn ? BELL_ON_SVG : BELL_OFF_SVG;
-  } catch (e) { /* reminders stay on */ }
+  } catch (e) { /* reminders stay off */ }
+  try {
+    const lead = await window.sideshow.getReminderLead();
+    if (typeof lead === "number") reminderLead = lead;
+    const btn = $("reminderLeadBtn");
+    if (btn) btn.textContent = reminderLead + " min before";
+    /* The lead-time row only shows while reminders are on — it has
+       nothing to set while they are off. */
+    const row = $("reminderLeadRow");
+    if (row) row.hidden = !remindersOn;
+  } catch (e) { /* reminder lead stays 15 min */ }
   try {
     accentSettingValue = await window.sideshow.getAccent();
     applyAccent();
@@ -1844,6 +2009,8 @@ async function refreshSettingsUI() {
   try {
     const h = await window.sideshow.getHiddenEvents();
     if (Array.isArray(h)) hiddenIds = new Set(h);
+    const p = await window.sideshow.getPinnedEvents();
+    if (Array.isArray(p)) pinnedIds = new Set(p);
     render();
     if (IS_SETTINGS_WINDOW) renderEventsList();
   } catch (e) { /* hidden list stays as-is */ }
@@ -2150,7 +2317,20 @@ document.addEventListener("DOMContentLoaded", () => {
     remindersOn = !remindersOn;
     try { await window.sideshow.setReminders(remindersOn); } catch (e) { /* stays local */ }
     remindersBtn.innerHTML = remindersOn ? BELL_ON_SVG : BELL_OFF_SVG;
+    const row = $("reminderLeadRow");
+    if (row) row.hidden = !remindersOn;
     flashSaved(remindersBtn);
+    if (remindersOn) syncEventsToMain();
+  });
+  /* Reminder lead time — tap to cycle 5 / 10 / 15 / 30 / 60 minutes
+     before an event starts (provisional list). Changing it
+     reschedules the reminders from the current event list. */
+  const reminderLeadBtn = $("reminderLeadBtn");
+  if (reminderLeadBtn) reminderLeadBtn.addEventListener("click", async () => {
+    reminderLead = REMINDER_LEAD_OPTIONS[(REMINDER_LEAD_OPTIONS.indexOf(reminderLead) + 1) % REMINDER_LEAD_OPTIONS.length];
+    try { await window.sideshow.setReminderLead(reminderLead); } catch (e) { /* stays local */ }
+    reminderLeadBtn.textContent = reminderLead + " min before";
+    flashSaved(reminderLeadBtn);
     if (remindersOn) syncEventsToMain();
   });
   const helpBtn = $("helpBtn");
@@ -2436,6 +2616,16 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       if (IS_SETTINGS_WINDOW) { window.sideshow.closeSettings(); return; }
+      /* Escape clears the search first (the panel stays open); a
+         second Escape, with the search empty, hides it. */
+      const searchInput = $("searchInput");
+      if (searchInput && searchInput.value) {
+        searchInput.value = "";
+        searchQuery = "";
+        render();
+        searchInput.focus();
+        return;
+      }
       window.sideshow.hide();
       return;
     }
@@ -2463,6 +2653,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   window.sideshow.onOpenEvent((id) => openEventById(id));
+  /* A fired reminder plays the current sound style's copy sound
+     (main asks for it — main has no Web Audio). Sound off means the
+     notification stays visual-only. */
+  if (window.sideshow.onPlaySound) window.sideshow.onPlaySound(() => { if (soundOn) playCopySound(); });
   /* Panel lifecycle: sound + the initial click-through state, seeded
      from the cursor position main sends with the showing event. */
   window.sideshow.onPanelShowing((data) => {
@@ -2557,6 +2751,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const h = await window.sideshow.getHiddenEvents();
         if (Array.isArray(h)) hiddenIds = new Set(h);
         render();
+      } else if (key === "pinned-events") {
+        const p = await window.sideshow.getPinnedEvents();
+        if (Array.isArray(p)) pinnedIds = new Set(p);
+        render();
       }
     } catch (e) { /* preview update skipped; the bubble still works */ }
   });
@@ -2565,5 +2763,9 @@ document.addEventListener("DOMContentLoaded", () => {
      the bubble has no picker (its elements are absent, so this is
      a no-op there). */
   refreshCalendarPicker();
+  /* Next up countdown: refresh in place every 30 seconds, so the
+     countdown ticks without a re-render (which would steal the
+     search box focus). */
+  nextUpTimer = setInterval(refreshNextUpCountdown, 30000);
   init();
 });

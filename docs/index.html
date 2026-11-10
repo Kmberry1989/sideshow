@@ -120,8 +120,14 @@
 <p>At the end of an expanded event's value bubbles is a <strong>Copy all</strong> row. Click it and the whole event is copied at once — every detail the event has, in the same order as the value bubbles, plus the description last, one field per line. The format is picked in Settings &gt; General under <strong>Copy all format</strong>: <strong>Labeled</strong> (default — one labeled line per field, like “Name: Christmas Ornaments”) or <strong>Plain</strong> (values only, same order, one per line). The same checkmark and sound confirm it. Press <kbd>C</kbd> with an event expanded to copy all of it.</p>
 <h3>Hiding events</h3>
 <p>Every event has an eye icon. Click it to hide that event: it stays saved in the bank, but it no longer appears in the bubble, the calendar view, the badge count, or reminders. Click the eye again — in the bubble or in Settings &gt; Events — to show it again.</p>
+<h3>Next up</h3>
+<p>At the top of the tree, the <strong>Next up</strong> row shows the soonest upcoming event — today first — with a countdown to its start time. Click it and the bubble jumps to that event's branch.</p>
+<h3>Pinned events</h3>
+<p>Every event has a pin icon next to the eye. Click it to pin that event: it moves to a <strong>Pinned</strong> section at the top of the tree, so tonight's workshops stay one click away. Click the pin again to unpin it and send it back to its normal place. Pinned events are saved, so they stay pinned after a restart. A pinned event appears only in the Pinned section, never twice.</p>
+<h3>Offline</h3>
+<p>Sideshow keeps the last events it fetched successfully. If the network is down or a fetch fails, the bubble shows those cached events instead of an empty list, and the status line says “Showing cached events” so cached data is never mistaken for live. The next successful fetch replaces the cache.</p>
 <h3>Search</h3>
-<p>Type in the search box to filter the events live. It matches name, date, time, price, ages, host, location, and description. If nothing matches, the bubble says “No matching events.”</p>
+<p>Type in the search box to filter the events live. It matches name, date, time, price, ages, host, location, and description. If nothing matches, the bubble says “No matching events.” Press <kbd>Esc</kbd> to clear the search; press it again, with the search empty, to close the bubble.</p>
 <h3>Hover</h3>
 <p>The entry under your cursor grows slightly while the others shrink a little, like the macOS Dock. This only applies when Motion is set to Full.</p>
 <p>Hovering any interactive element shows a short tooltip naming what it does — “Settings”, “Copy name”, “Hide event”. Tooltips are hover-only: they never appear on touch, and never while you are dragging. Turn them off in Settings &gt; General under <strong>Tooltips</strong>.</p>
@@ -141,7 +147,7 @@
     <tr><td><kbd>C</kbd></td><td>All details (Copy all)</td></tr>
   </tbody>
 </table>
-<p>Press <kbd>Esc</kbd> in the bubble to close it. In the Settings window, <kbd>Esc</kbd> closes Settings instead.</p>
+<p>Press <kbd>Esc</kbd> in the bubble to close it — Escape clears the search first, and only closes the bubble once the search is empty. In the Settings window, <kbd>Esc</kbd> closes Settings instead.</p>
 
 <h2 id="calendar-view">Calendar view</h2>
 <p>The calendar button in the header switches the bubble between three views: the tree list, a month grid, and a week journal. Tap the button to cycle tree → month → week → tree; the icon shows the view it will switch to next.</p>
@@ -150,7 +156,7 @@
 <p>The grid sits on the background from Settings &gt; Appearance — the same background color, look, and transparency slider that color the bubbles. On the default Clear look the backdrop is faint by design; pick Shaded, or a background color, for a solid backdrop behind the grid.</p>
 
 <h2 id="week-view">Week view</h2>
-<p>The week view is a journal-style list of the week's seven days, Sunday to Saturday — the same week start as the month grid. Each day is a section with its date heading and that day's events listed under it, with their time and name, plus price and location where the event has them. Days with no events show just the date heading.</p>
+<p>The week view is a journal-style list of the week's seven days, Sunday to Saturday — the same week start as the month grid. It opens on the current week. Each day is a section with its date heading and that day's events listed under it, with their time and name, plus price and location where the event has them. Days with no events show just the date heading.</p>
 <p>Use the arrows to move between weeks, or click the week label to jump back to this week. Events that last more than one day sit on their start date, and events with no date stay in the tree only. Click an entry and the bubble switches back to the tree with that event's branch open, same as the month grid.</p>
 <p>The week view has the same backdrop and border as the month grid, and it scrolls the same way: a vertical swipe scrolls the list, a sideways drag moves the window.</p>
 
@@ -187,7 +193,7 @@
     <tr><td>Look</td><td>Glass (Liquid Glass, frosted — default), Shaded (soft tint), or Clear (nearly transparent).</td></tr>
     <tr><td>See-through</td><td>Transparency slider, 0–100. Default 50.</td></tr>
     <tr><td>Scale</td><td>Bubble size, 80–150%. Default 100%.</td></tr>
-    <tr><td>Font</td><td>Mono (default), System, Serif, or Rounded.</td></tr>
+    <tr><td>Font</td><td>Mono (default), System, Serif, Rounded, Georgia, Palatino, Verdana, Tahoma, Trebuchet, or Courier. All system fonts — nothing to download.</td></tr>
     <tr><td>Weight</td><td>Regular (400), Medium (500), or Bold (700).</td></tr>
     <tr><td>Border</td><td>Border color — swatches or a custom color.</td></tr>
     <tr><td>Shadow</td><td>On or off, with a strength slider, 0–100. Default on at 40.</td></tr>
@@ -225,13 +231,13 @@
 <p><strong>Copy all format.</strong> What the Copy all row puts on the clipboard: <strong>Labeled</strong> (default — one labeled line per field) or <strong>Plain</strong> (values only, same order).</p>
 <p><strong>Tooltips.</strong> Short hover tooltips on every interactive element. On by default; turn them off to hide them all.</p>
 <p><strong>Motion.</strong> Full, Reduced, or Off. When you have not chosen, it follows your operating system's reduced-motion preference. Reduced softens the pulse; Off turns the pulse, the open animation, and the hover magnification off.</p>
-<p><strong>Reminders.</strong> On by default. Sideshow sends a system notification for each event twice: one day before it starts, and one hour before. The badge on the tray icon (and the Mac dock) counts upcoming events. Reminders and the badge work independently — either can be on without the other.</p>
+<p><strong>Reminders.</strong> Off by default. Turn them on and Sideshow sends a system notification for each event once, at the lead time you pick under <strong>Remind me</strong>: 5, 10, 15 (default), 30, or 60 minutes before it starts. The notification shows the event name and start time, and plays the current sound style's copy sound when Sound is on. Clicking it opens that event's branch. Only events with a start time get reminders. The badge on the tray icon (and the Mac dock) counts upcoming events. Reminders and the badge work independently — either can be on without the other.</p>
 <p><strong>Accent.</strong> One color for the copy confirmation and the interface accents. Default follows the platform (blue on Mac, green on Windows), or pick Terracotta, Clay, Gold, Green, Teal, Blue, or Plum. Terracotta is the studio brand color.</p>
 <p><strong>Google Calendar.</strong> See <a href="#google-calendar">Google Calendar</a>.</p>
 <p><strong>Help.</strong> A link to this page.</p>
 
 <h2 id="events-tab">Events</h2>
-<p>The Events tab lists every saved event in the bank. Each row has its eye (hide or show it) and, for Main Eventer events, an edit form: name, date, start and end time, price, ages, host, and location. Saving writes the change back to the saved-event bank.</p>
+<p>The Events tab lists every saved event in the bank. Each row has its eye (hide or show it) and its pin (pin it to the Pinned section at the top of the tree), and, for Main Eventer events, an edit form: name, date, start and end time, price, ages, host, and location. Saving writes the change back to the saved-event bank.</p>
 <p>Google Calendar events appear in the list with their eye only — they are read-only here. To change a calendar event, edit it in Google Calendar.</p>
 <p>Hidden events stay in the bank and in this list; they are only hidden from the bubble, the calendar view, the badge, and reminders.</p>
 
@@ -252,7 +258,7 @@
 <p>Signing out removes the saved sign-in from the app.</p>
 
 <h2 id="reminders">Reminders, sound, motion</h2>
-<p>See <a href="#general">General</a>: Reminders are on by default (notifications one day and one hour before each event), Sound is on by default, and Motion follows your operating system unless you pick Full, Reduced, or Off.</p>
+<p>See <a href="#general">General</a>: Reminders are off by default (one notification per event, at the lead time you pick), Sound is on by default, and Motion follows your operating system unless you pick Full, Reduced, or Off.</p>
 
 <h2 id="installing">Installing &amp; updating</h2>
 <h3>Windows</h3>

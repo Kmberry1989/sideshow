@@ -529,24 +529,34 @@ function createTray() {
 /* ---------- reminders + badge (optional; never blocks the core) ----------
 
    The renderer sends the saved events (id, name, date YYYY-MM-DD,
-   startTime HH:MM) whenever the list changes. Main schedules two
-   reminders per event (1 day and 1 hour before start), shows a system
-   notification for each, and keeps a badge count of upcoming events.
-   Reminders are on by default and can be turned off in settings.
-   The badge does not require reminders and reminders do not require
-   the badge. If notifications are denied by the OS, reminders are
-   skipped silently — the panel still works. */
+   startTime HH:MM) whenever the list changes. Main schedules one
+   reminder per event, a configurable lead time before it starts,
+   shows a system notification for it, and keeps a badge count of
+   upcoming events. Reminders are OFF by default (the options
+   principle — the core works with everything off) and can be turned
+   on in settings. The badge does not require reminders and reminders
+   do not require the badge. If notifications are denied by the OS,
+   reminders are skipped silently — the panel still works. */
 
 const REMINDER_FILE = "sideshow-reminders.json";
-const REMINDER_LEADS = [
-  { lead: "1d", ms: 24 * 60 * 60 * 1000, label: "tomorrow" },
-  { lead: "1h", ms: 60 * 60 * 1000, label: "in an hour" },
-];
+/* PROVISIONAL lead-time list — Kyle picks the final list; it lives
+   in this one constant so changing it is a one-line edit. Minutes
+   before an event starts that its reminder fires. Default 15. */
+const REMINDER_LEAD_MINUTES = [5, 10, 15, 30, 60];
+const REMINDER_LEAD_DEFAULT = 15;
 let reminderTimers = [];
 let firedReminders = null; /* Set of keys, persisted in userData. */
 
 function remindersEnabled() {
-  return settings.reminders !== false;
+  return settings.reminders === true;
+}
+
+/* The lead time in minutes, from the setting, validated against the
+   list — an unknown value falls back to the default. */
+function reminderLeadMinutes() {
+  const v = settings.reminderLeadMinutes;
+  if (typeof v === "number" && REMINDER_LEAD_MINUTES.indexOf(v) >= 0) return v;
+  return REMINDER_LEAD_DEFAULT;
 }
 
 function reminderStorePath() {
@@ -592,26 +602,29 @@ function clearReminderTimers() {
   reminderTimers = [];
 }
 
-/* Schedule (or reschedule) reminders for the given events. Only future
-   reminder times are scheduled; past events and already-fired
-   reminders are skipped. A restart never re-fires a reminder. */
+/* Schedule (or reschedule) reminders for the given events. One
+   reminder per event, at the configured lead time before it starts.
+   Only future reminder times are scheduled; past events and
+   already-fired reminders are skipped. A restart never re-fires a
+   reminder. */
 function scheduleReminders(events) {
   clearReminderTimers();
   const now = Date.now();
   const fired = loadFiredReminders();
   if (!remindersEnabled() || !Array.isArray(events)) return;
+  const lead = reminderLeadMinutes();
+  const leadMs = lead * 60 * 1000;
+  const leadKey = lead + "m";
   events.forEach((ev) => {
     const startMs = eventStartMs(ev);
     if (startMs == null || startMs <= now) return;
-    REMINDER_LEADS.forEach(({ lead, ms }) => {
-      const fireAt = startMs - ms;
-      if (fireAt <= now) return;
-      const key = reminderKey(ev, lead, startMs);
-      if (fired.has(key)) return;
-      const delay = fireAt - now;
-      if (delay > 2147483647) return; /* setTimeout ceiling (~24.8d) */
-      reminderTimers.push(setTimeout(() => fireReminder(ev, lead, startMs, key), delay));
-    });
+    const fireAt = startMs - leadMs;
+    if (fireAt <= now) return;
+    const key = reminderKey(ev, leadKey, startMs);
+    if (fired.has(key)) return;
+    const delay = fireAt - now;
+    if (delay > 2147483647) return; /* setTimeout ceiling (~24.8d) */
+    reminderTimers.push(setTimeout(() => fireReminder(ev, leadKey, startMs, key), delay));
   });
 }
 
@@ -650,6 +663,14 @@ function showReminderNotification(ev, lead, startMs) {
       if (panel) panel.webContents.send("sideshow:open-event", ev.id || null);
     });
     note.show();
+    /* The reminder sound is the current sound style's copy sound,
+       played by the panel renderer (main has no Web Audio). Sound
+       off means the notification stays visual-only. */
+    if (settings.sound !== false) {
+      try {
+        if (panel && !panel.isDestroyed()) panel.webContents.send("sideshow:play-sound");
+      } catch (e) { /* panel gone; notification already showed */ }
+    }
   } catch (e) { /* notification failed; panel still works */ }
 }
 
@@ -1198,6 +1219,33 @@ ipcMain.handle("sideshow:set-hidden-events", (_e, value) => {
   return settings.hiddenEvents;
 });
 
+/* Pinned events: ids the user pinned with the pin icon. They stay
+   in the bank, but render in the Pinned section at the top of the
+   tree instead of their normal place. Persisted in settings; the
+   bubble reloads them live. */
+function pinnedEventsSetting() {
+  const ids = Array.isArray(settings.pinnedEvents) ? settings.pinnedEvents : [];
+  const seen = new Set();
+  const out = [];
+  ids.forEach((id) => {
+    if (typeof id === "string" && id && !seen.has(id)) { seen.add(id); out.push(id); }
+  });
+  return out.slice(0, 500);
+}
+ipcMain.handle("sideshow:get-pinned-events", () => pinnedEventsSetting());
+ipcMain.handle("sideshow:set-pinned-events", (_e, value) => {
+  const ids = Array.isArray(value) ? value : [];
+  const seen = new Set();
+  const out = [];
+  ids.forEach((id) => {
+    if (typeof id === "string" && id && !seen.has(id)) { seen.add(id); out.push(id); }
+  });
+  settings.pinnedEvents = out.slice(0, 500);
+  saveSettings();
+  broadcastSettingsChange("pinned-events");
+  return settings.pinnedEvents;
+});
+
 ipcMain.handle("sideshow:get-sound", () => settings.sound !== false);
 
 ipcMain.handle("sideshow:set-sound", (_e, enabled) => {
@@ -1272,6 +1320,20 @@ ipcMain.handle("sideshow:set-reminders", (_e, enabled) => {
   saveSettings();
   if (!settings.reminders) clearReminderTimers();
   return settings.reminders;
+});
+
+/* Reminder lead time: minutes before an event starts that its
+   reminder fires. One value from REMINDER_LEAD_MINUTES (the
+   provisional list — Kyle picks the final one); anything else falls
+   back to the default. Changing it reschedules — the renderer
+   re-sends the event list after a change. */
+ipcMain.handle("sideshow:get-reminder-lead", () => reminderLeadMinutes());
+
+ipcMain.handle("sideshow:set-reminder-lead", (_e, value) => {
+  const v = REMINDER_LEAD_MINUTES.indexOf(value) >= 0 ? value : REMINDER_LEAD_DEFAULT;
+  settings.reminderLeadMinutes = v;
+  saveSettings();
+  return v;
 });
 
 /* Accent color: a hex string (e.g. "#a44a24") or null for the
@@ -1362,6 +1424,35 @@ ipcMain.handle("sideshow:events-updated", (_e, list) => {
     scheduleReminders(list);
   } catch (err) { /* badge/reminders never block the panel */ }
   return true;
+});
+
+/* Cached events: the last successfully fetched merged event list
+   (Main Eventer + Google Calendar), saved by the renderer whenever
+   live data arrives. When a fetch fails or there is no network, the
+   renderer renders from this cache and says so — stale data is
+   never mistaken for live. */
+const EVENTS_CACHE_FILE = "sideshow-events-cache.json";
+function eventsCachePath() {
+  return path.join(app.getPath("userData"), EVENTS_CACHE_FILE);
+}
+ipcMain.handle("sideshow:get-cached-events", () => {
+  try {
+    const raw = fs.readFileSync(eventsCachePath(), "utf8");
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.events)) {
+      return { savedAt: typeof parsed.savedAt === "number" ? parsed.savedAt : 0, events: parsed.events.slice(0, 200) };
+    }
+  } catch (e) { /* no cache yet */ }
+  return null;
+});
+ipcMain.handle("sideshow:set-cached-events", (_e, value) => {
+  try {
+    if (value && Array.isArray(value.events)) {
+      fs.writeFileSync(eventsCachePath(), JSON.stringify({ savedAt: Date.now(), events: value.events.slice(0, 200) }), "utf8");
+      return true;
+    }
+  } catch (e) { /* cache not persisted */ }
+  return false;
 });
 
 /* ---------- app lifecycle ---------- */

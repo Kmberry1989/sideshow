@@ -57,6 +57,23 @@ test("help page documents the v0.1.11 features", () => {
   assert.ok(!helpHtml.includes("Jagged"), "help page must not mention the removed Jagged corners option");
 });
 
+test("help page documents the v0.1.12 features", () => {
+  for (const feature of [
+    "Next up", /* soonest upcoming event with a countdown */
+    "Pinned", /* pin events to the top of the tree */
+    "Showing cached events", /* offline cache + indicator */
+    "Remind me", /* configurable reminder lead time */
+    "Georgia", /* more fonts */
+    "Palatino",
+    "Verdana",
+    "Trebuchet",
+  ]) {
+    assert.ok(helpHtml.includes(feature), "help page must document: " + feature);
+  }
+  assert.ok(helpHtml.includes("Escape clears the search"), "help page must cover Escape clearing the search");
+  assert.ok(helpHtml.includes("off by default"), "help page must say reminders are off by default");
+});
+
 test("tray menu has a Help item opening the live help URL", () => {
   assert.ok(mainJs.includes('const HELP_URL = "' + HELP_URL + '"'), "main.js must define the live Pages URL");
   assert.ok(mainJs.includes('{ label: "Help", click: () => { shell.openExternal(HELP_URL); } }'),

@@ -77,9 +77,15 @@ const FONTS = {
   mono: 'ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace',
   serif: 'Georgia, "Times New Roman", "Noto Serif", serif',
   rounded: 'ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif',
+  georgia: 'Georgia, "Times New Roman", "Noto Serif", serif',
+  palatino: '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif',
+  verdana: 'Verdana, Geneva, "Segoe UI", sans-serif',
+  tahoma: 'Tahoma, Geneva, Verdana, sans-serif',
+  trebuchet: '"Trebuchet MS", "Segoe UI", Verdana, sans-serif',
+  courier: '"Courier New", Courier, ui-monospace, monospace',
 };
-const FONT_LABELS = { system: "System", mono: "Mono", serif: "Serif", rounded: "Rounded" };
-const FONT_CYCLE = ["mono", "system", "serif", "rounded"];
+const FONT_LABELS = { system: "System", mono: "Mono", serif: "Serif", rounded: "Rounded", georgia: "Georgia", palatino: "Palatino", verdana: "Verdana", tahoma: "Tahoma", trebuchet: "Trebuchet", courier: "Courier" };
+const FONT_CYCLE = ["mono", "system", "serif", "rounded", "georgia", "palatino", "verdana", "tahoma", "trebuchet", "courier"];
 
 const WEIGHTS = { regular: 400, medium: 500, bold: 700 };
 const WEIGHT_LABELS = { regular: "Regular", medium: "Medium", bold: "Bold" };

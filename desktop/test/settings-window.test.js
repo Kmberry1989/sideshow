@@ -38,7 +38,7 @@ const SETTINGS_IDS = [
   "textColorInput", "fieldOutline", "hotkeyBtn", "doubletapBtn",
   "gestureBtn", "gestureClearBtn", "longclickBtn", "longclickClearBtn",
   "authLabel", "signInBtn", "signOutBtn", "soundBtn", "motionBtn",
-  "remindersBtn", "accentSwatches", "calendarToggleBtn", "calendarPicker",
+  "remindersBtn", "reminderLeadRow", "reminderLeadBtn", "accentSwatches", "calendarToggleBtn", "calendarPicker",
   "calendarPickerStatus", "calendarList", "eventsList",
 ];
 
