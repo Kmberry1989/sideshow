@@ -30,6 +30,13 @@ test("help page exists and covers Sideshow v0.1.10", () => {
   assert.ok(!helpHtml.includes("TODO") && !helpHtml.includes("Lorem ipsum"), "help page must have no placeholder content");
 });
 
+test("help page documents the v0.1.10 features", () => {
+  for (const feature of ["Touch", "Drag anywhere on the bubble", "Studio", "Dark", "Light", "White"]) {
+    assert.ok(helpHtml.includes(feature), "help page must document: " + feature);
+  }
+  assert.ok(helpHtml.includes("solid backdrop behind the grid"), "help page must cover the calendar backdrop");
+});
+
 test("tray menu has a Help item opening the live help URL", () => {
   assert.ok(mainJs.includes('const HELP_URL = "' + HELP_URL + '"'), "main.js must define the live Pages URL");
   assert.ok(mainJs.includes('{ label: "Help", click: () => { shell.openExternal(HELP_URL); } }'),

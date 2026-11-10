@@ -77,6 +77,7 @@
     <li><a href="#bubble">The bubble</a></li>
     <li><a href="#keyboard">Keyboard shortcuts</a></li>
     <li><a href="#calendar-view">Calendar view</a></li>
+    <li><a href="#touch">Touch</a></li>
     <li><a href="#settings">Settings window</a></li>
     <li><a href="#position">Position</a></li>
     <li><a href="#appearance">Appearance</a></li>
@@ -106,12 +107,12 @@
   <li><strong>Long-click</strong> — press and hold a mouse button for the length you recorded, if you have set one up in Settings &gt; Summon.</li>
   <li><strong>Tray icon</strong> — click the Sideshow tent icon in the taskbar (Windows) or menu bar (Mac) once to toggle it, or double-click it. Right-click the icon for the menu: Show Sideshow, Sign in, Help, Quit.</li>
 </ul>
-<p>The bubble opens where your Position setting says it should — next to the cursor by default. Drag the Event Bank bubble at the top to move it; with Position set to Remember spot, it opens where you left it.</p>
+<p>The bubble opens where your Position setting says it should — next to the cursor by default. Drag anywhere on the bubble to move it: press and drag from any spot and the whole overlay follows. The search box and text fields stay typeable while you drag from anywhere else. With Position set to Remember spot, it opens where you left it.</p>
 
 <h2 id="bubble">The bubble</h2>
 <p>The header has four controls, left to right: the gear (opens Settings), the search box, the calendar view toggle, and the close button (hides the bubble).</p>
 <h3>Event Bank</h3>
-<p>The first bubble is the Event Bank — the root of the tree. It is also the drag handle for the whole overlay. Clicking it (without dragging) opens or closes the currently focused event.</p>
+<p>The first bubble is the Event Bank — the root of the tree. Clicking it (without dragging) opens or closes the currently focused event.</p>
 <h3>Events</h3>
 <p>Each event shows its name in large bold text, then the date and time range, then price, ages, host, and location in a smaller block separated by dots. Click an event to expand it into its value bubbles; click it again to collapse it.</p>
 <p>Each value bubble shows one detail. Click it and the detail is copied — a checkmark draws itself and a soft sound plays. The value bubbles are, in order: name, date, time range, price, ages, host, location. Only details the event actually has are shown.</p>
@@ -141,6 +142,12 @@
 <h2 id="calendar-view">Calendar view</h2>
 <p>The calendar button in the header switches the bubble between the tree list and a month grid. The grid shows every event on the date it happens; events that last more than one day sit on their start date, and events with no date stay in the tree only.</p>
 <p>Use the arrows to move between months, or click the month label to jump back to this month. Click an entry on a date and the bubble switches back to the tree with that event's branch open.</p>
+<p>The grid sits on the background from Settings &gt; Appearance — the same background color, look, and transparency slider that color the bubbles. On the default Clear look the backdrop is faint by design; pick Shaded, or a background color, for a solid backdrop behind the grid.</p>
+
+<h2 id="touch">Touch</h2>
+<p>Sideshow works with a touchscreen as well as a mouse. Tap the tray icon to summon the bubble, then tap an event to expand it and tap a value to copy it — a tap works exactly like a click everywhere, including the eye, the header buttons, and the calendar entries.</p>
+<p>Drag the bubble with a finger the same way as with a mouse: press anywhere on it and drag. A vertical swipe inside the event list or the calendar scrolls the list instead of moving the window; a sideways drag moves it.</p>
+<p>The eye icon has a larger tap target than its size suggests, so it is easy to hit with a finger.</p>
 
 <h2 id="settings">Settings window</h2>
 <p>Click the gear in the bubble header to open Settings in its own window — a normal framed window, 480 by 700, centered on the display with your cursor. While it is open, the bubble stays up beside it as a live preview: change a look, a color, or a size in Settings and the bubble updates right away, no reload.</p>
@@ -161,6 +168,7 @@
 <table>
   <thead><tr><th>Setting</th><th>What it does</th></tr></thead>
   <tbody>
+    <tr><td>Themes</td><td>One-tap presets at the top of Appearance. <strong>Studio</strong> (terracotta glass), <strong>Dark</strong> (dark shaded), and <strong>Light</strong> (white glass). Each sets the look, background, and accent together, and returns the text color to automatic ink. You can still change any setting after applying one.</td></tr>
     <tr><td>Look</td><td>Glass (Liquid Glass, frosted — default), Shaded (soft tint), or Clear (nearly transparent).</td></tr>
     <tr><td>See-through</td><td>Transparency slider, 0–100. Default 50.</td></tr>
     <tr><td>Scale</td><td>Bubble size, 80–150%. Default 100%.</td></tr>
@@ -177,6 +185,7 @@
     <tr><td>Separate entries</td><td>How events are set apart: Bullets (small dots — default), Lines (a thin rule between entries), or Spacing (more breathing room).</td></tr>
   </tbody>
 </table>
+<p>The color swatches include White, Terracotta, Clay, Gold, Green, Teal, Blue, Plum, and Dark, plus a custom color picker.</p>
 
 <h2 id="text">Text</h2>
 <p><strong>Text color</strong> sets the overall text color for the bubble, with swatches or a custom color. Leaving it unset uses the automatic ink, picked for readability against your background.</p>
