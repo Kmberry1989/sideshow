@@ -135,10 +135,10 @@ test("search: Escape clears the search first, a second Escape hides the panel", 
   assert.ok(rendererJs.includes("searchInput.focus()"), "clearing must keep the search box focused");
 });
 
-test("reminders: off by default, one configurable lead time, provisional list in one constant", () => {
-  /* One constant, provisional — Kyle picks the final list. */
-  assert.ok(mainJs.includes("const REMINDER_LEAD_MINUTES = [5, 10, 15, 30, 60];"),
-    "the lead-time list must be one constant: [5, 10, 15, 30, 60]");
+test("reminders: off by default, one configurable lead time, list in one constant", () => {
+  /* One constant — Kyle's pick (Nov 10, 2026): 5, 15, 30, 60. */
+  assert.ok(mainJs.includes("const REMINDER_LEAD_MINUTES = [5, 15, 30, 60];"),
+    "the lead-time list must be one constant: [5, 15, 30, 60]");
   assert.ok(mainJs.includes("const REMINDER_LEAD_DEFAULT = 15;"), "the default lead must be 15 minutes");
   assert.ok(mainJs.includes("function reminderLeadMinutes()"), "main must normalize the lead time");
   assert.ok(!mainJs.includes("REMINDER_LEADS"), "the fixed 1-day / 1-hour leads must be gone");

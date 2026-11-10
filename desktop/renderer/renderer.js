@@ -86,8 +86,8 @@ let signedIn = false;
 let hiddenIds = new Set(); /* event _ids hidden with the eye; stay in the bank, out of the bubble */
 let pinnedIds = new Set(); /* event _ids pinned; they render in the Pinned section at the top, not their normal place */
 let cachedMode = false; /* true while the tree shows the last fetched events because the live fetch failed */
-let reminderLead = 15; /* minutes before an event starts that its reminder fires (provisional list: 5/10/15/30/60) */
-const REMINDER_LEAD_OPTIONS = [5, 10, 15, 30, 60]; /* provisional — Kyle picks the final list */
+let reminderLead = 15; /* minutes before an event starts that its reminder fires (lead list: 5/15/30/60) */
+const REMINDER_LEAD_OPTIONS = [5, 15, 30, 60];
 let nextUpTimer = null; /* 30s tick that refreshes the Next up countdown in place */
 let nextUpShown = null; /* { event, startMs } currently shown in the Next up row */
 /* Bubble view mode: "tree" (the branch list), "calendar" (month
@@ -2322,8 +2322,8 @@ document.addEventListener("DOMContentLoaded", () => {
     flashSaved(remindersBtn);
     if (remindersOn) syncEventsToMain();
   });
-  /* Reminder lead time — tap to cycle 5 / 10 / 15 / 30 / 60 minutes
-     before an event starts (provisional list). Changing it
+  /* Reminder lead time — tap to cycle 5 / 15 / 30 / 60 minutes
+     before an event starts. Changing it
      reschedules the reminders from the current event list. */
   const reminderLeadBtn = $("reminderLeadBtn");
   if (reminderLeadBtn) reminderLeadBtn.addEventListener("click", async () => {

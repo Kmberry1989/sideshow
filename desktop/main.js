@@ -539,10 +539,10 @@ function createTray() {
    reminders are skipped silently — the panel still works. */
 
 const REMINDER_FILE = "sideshow-reminders.json";
-/* PROVISIONAL lead-time list — Kyle picks the final list; it lives
-   in this one constant so changing it is a one-line edit. Minutes
+/* Lead-time list — Kyle's pick (Nov 10, 2026): 5, 15, 30, 60 minutes.
+   It lives in this one constant so changing it is a one-line edit. Minutes
    before an event starts that its reminder fires. Default 15. */
-const REMINDER_LEAD_MINUTES = [5, 10, 15, 30, 60];
+const REMINDER_LEAD_MINUTES = [5, 15, 30, 60];
 const REMINDER_LEAD_DEFAULT = 15;
 let reminderTimers = [];
 let firedReminders = null; /* Set of keys, persisted in userData. */
@@ -1323,8 +1323,8 @@ ipcMain.handle("sideshow:set-reminders", (_e, enabled) => {
 });
 
 /* Reminder lead time: minutes before an event starts that its
-   reminder fires. One value from REMINDER_LEAD_MINUTES (the
-   provisional list — Kyle picks the final one); anything else falls
+   reminder fires. One value from REMINDER_LEAD_MINUTES (Kyle's
+   pick: 5, 15, 30, 60, default 15); anything else falls
    back to the default. Changing it reschedules — the renderer
    re-sends the event list after a change. */
 ipcMain.handle("sideshow:get-reminder-lead", () => reminderLeadMinutes());
